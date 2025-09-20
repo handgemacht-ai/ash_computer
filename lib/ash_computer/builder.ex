@@ -32,7 +32,7 @@ defmodule AshComputer.Builder do
     Enum.reduce(inputs, computer, fn %Input{} = input, acc ->
       Runtime.add_input(
         acc,
-        normalize_name(input.name),
+        input.name,
         input.initial,
         input.description,
         Map.get(input, :options, [])
@@ -50,7 +50,7 @@ defmodule AshComputer.Builder do
 
       Runtime.add_val(
         acc,
-        normalize_name(val.name),
+        val.name,
         val.description,
         compute_fun,
         dependencies
@@ -60,12 +60,13 @@ defmodule AshComputer.Builder do
 
   defp get_dependencies(%Val{depends_on: depends_on}) do
     # Always use compile-time parsed dependencies
-    Enum.map(depends_on || [], &normalize_name/1)
+    depends_on || []
   end
 
-  defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
-  defp normalize_name(name) when is_binary(name), do: name
-  defp normalize_name(name), do: to_string(name)
+  # No longer needed - we keep atoms as atoms
+  # defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
+  # defp normalize_name(name) when is_binary(name), do: name
+  # defp normalize_name(name), do: to_string(name)
 
   defp default_display_name(nil), do: ""
 

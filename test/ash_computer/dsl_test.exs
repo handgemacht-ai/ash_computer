@@ -21,7 +21,7 @@ defmodule AshComputer.DslTest do
 
       val :pace do
         description "Minutes per kilometer"
-        compute(fn %{"time" => time, "distance" => distance} -> time / distance end)
+        compute(fn %{time: time, distance: distance} -> time / distance end)
       end
 
       event(:reset, handle: &__MODULE__.reset/1)
@@ -30,14 +30,14 @@ defmodule AshComputer.DslTest do
 
     def reset(computer) do
       computer
-      |> CoreComputer.handle_input("time", 30)
-      |> CoreComputer.handle_input("distance", 10)
+      |> CoreComputer.handle_input(:time, 30)
+      |> CoreComputer.handle_input(:distance, 10)
     end
 
     def load(computer, payload) do
       computer
-      |> CoreComputer.handle_input("time", payload["time"])
-      |> CoreComputer.handle_input("distance", payload["distance"])
+      |> CoreComputer.handle_input(:time, payload[:time])
+      |> CoreComputer.handle_input(:distance, payload[:distance])
     end
   end
 
@@ -45,11 +45,11 @@ defmodule AshComputer.DslTest do
     computer = AshComputer.computer(PaceComputer)
 
     assert computer.name == "Pace"
-    assert computer.values["pace"] == 3.0
+    assert computer.values[:pace] == 3.0
 
-    computer = CoreComputer.handle_input(computer, "time", 40)
+    computer = CoreComputer.handle_input(computer, :time, 40)
 
-    assert computer.values["pace"] == 4.0
+    assert computer.values[:pace] == 4.0
   end
 
   test "runs events" do
@@ -59,19 +59,19 @@ defmodule AshComputer.DslTest do
 
     computer =
       computer
-      |> CoreComputer.handle_input("time", 100)
-      |> CoreComputer.handle_input("distance", 50)
+      |> CoreComputer.handle_input(:time, 100)
+      |> CoreComputer.handle_input(:distance, 50)
 
     computer = AshComputer.apply_event(PaceComputer, :reset, computer)
-    assert computer.values["time"] == 30
-    assert computer.values["distance"] == 10
-    assert computer.values["pace"] == 3.0
+    assert computer.values[:time] == 30
+    assert computer.values[:distance] == 10
+    assert computer.values[:pace] == 3.0
 
-    payload = %{"time" => 45, "distance" => 9}
+    payload = %{time: 45, distance: 9}
     computer = AshComputer.apply_event(PaceComputer, :pace, :load, computer, payload)
-    assert computer.values["time"] == 45
-    assert computer.values["distance"] == 9
-    assert computer.values["pace"] == 5.0
+    assert computer.values[:time] == 45
+    assert computer.values[:distance] == 9
+    assert computer.values[:pace] == 5.0
   end
 
   defmodule ChainedComputer do
@@ -85,12 +85,12 @@ defmodule AshComputer.DslTest do
 
       val :doubled do
         description "Double the base value"
-        compute(fn %{"base_value" => base} -> base * 2 end)
+        compute(fn %{base_value: base} -> base * 2 end)
       end
 
       val :quadrupled do
         description "Double the doubled value"
-        compute(fn %{"doubled" => doubled} -> doubled * 2 end)
+        compute(fn %{doubled: doubled} -> doubled * 2 end)
       end
     end
   end
@@ -99,15 +99,15 @@ defmodule AshComputer.DslTest do
     computer = AshComputer.computer(ChainedComputer)
 
     # Initial values should be computed correctly through the chain
-    assert computer.values["base_value"] == 10
-    assert computer.values["doubled"] == 20
-    assert computer.values["quadrupled"] == 40
+    assert computer.values[:base_value] == 10
+    assert computer.values[:doubled] == 20
+    assert computer.values[:quadrupled] == 40
 
     # Update the input and verify the chain updates
-    computer = CoreComputer.handle_input(computer, "base_value", 5)
+    computer = CoreComputer.handle_input(computer, :base_value, 5)
 
-    assert computer.values["base_value"] == 5
-    assert computer.values["doubled"] == 10
-    assert computer.values["quadrupled"] == 20
+    assert computer.values[:base_value] == 5
+    assert computer.values[:doubled] == 10
+    assert computer.values[:quadrupled] == 20
   end
 end

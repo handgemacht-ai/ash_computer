@@ -29,18 +29,18 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
 
   defp add_input_names(set, inputs) do
     Enum.reduce(inputs, set, fn input, acc ->
-      MapSet.put(acc, Atom.to_string(input.name))
+      MapSet.put(acc, input.name)
     end)
   end
 
   defp add_val_names(set, vals) do
     Enum.reduce(vals, set, fn val, acc ->
-      MapSet.put(acc, Atom.to_string(val.name))
+      MapSet.put(acc, val.name)
     end)
   end
 
   defp validate_val_dependencies(val, available_names, computer_name) do
-    # depends_on is a list of strings after parsing
+    # depends_on is a list of atoms after parsing
     case val.depends_on do
       nil -> :ok
       dependencies when is_list(dependencies) ->

@@ -13,13 +13,13 @@ defmodule AshComputer.AstParser do
 
   ## Examples
 
-      iex> ast = quote do: fn %{"a" => a, "b" => b} -> a + b end
+      iex> ast = quote do: fn %{a: a, b: b} -> a + b end
       iex> AshComputer.AstParser.parse_quoted_function(ast)
-      ["a", "b"]
+      [:a, :b]
 
-      iex> ast = quote do: fn %{"x" => x} -> x * 2 end
+      iex> ast = quote do: fn %{x: x} -> x * 2 end
       iex> AshComputer.AstParser.parse_quoted_function(ast)
-      ["x"]
+      [:x]
   """
   def parse_quoted_function({:fn, _, clauses}) when is_list(clauses) do
     # Extract dependencies from all clauses and combine them
@@ -43,9 +43,11 @@ defmodule AshComputer.AstParser do
 
   # Extract dependencies from various pattern types
   defp extract_dependencies_from_pattern({:%{}, _meta, pairs}) when is_list(pairs) do
-    # Map pattern matching
+    # Map pattern matching with atom keys
     Enum.flat_map(pairs, fn
-      {key, _var} when is_binary(key) -> [key]
+      {key, _var} when is_atom(key) -> [key]
+      # Support legacy string keys if needed
+      {key, _var} when is_binary(key) -> [String.to_atom(key)]
       _ -> []
     end)
   end
@@ -54,7 +56,7 @@ defmodule AshComputer.AstParser do
        when is_list(pairs) do
     # Struct pattern matching (if values come from a struct)
     Enum.flat_map(pairs, fn
-      {key, _var} when is_atom(key) -> [Atom.to_string(key)]
+      {key, _var} when is_atom(key) -> [key]
       _ -> []
     end)
   end

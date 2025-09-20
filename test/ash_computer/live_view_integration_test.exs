@@ -18,24 +18,24 @@ defmodule AshComputer.LiveViewIntegrationTest do
       end
 
       val :sum do
-        compute(fn %{"x" => x, "y" => y} -> x + y end)
+        compute(fn %{x: x, y: y} -> x + y end)
       end
 
       val :product do
-        compute(fn %{"x" => x, "y" => y} -> x * y end)
+        compute(fn %{x: x, y: y} -> x * y end)
       end
 
       event :set_x do
-        handle fn computer, %{"value" => value} ->
-          AshComputer.Runtime.handle_input(computer, "x", value)
+        handle fn computer, %{value: value} ->
+          AshComputer.Runtime.handle_input(computer, :x, value)
         end
       end
 
       event :reset do
         handle fn computer, _params ->
           computer
-          |> AshComputer.Runtime.handle_input("x", 10)
-          |> AshComputer.Runtime.handle_input("y", 5)
+          |> AshComputer.Runtime.handle_input(:x, 10)
+          |> AshComputer.Runtime.handle_input(:y, 5)
         end
       end
     end
@@ -52,19 +52,19 @@ defmodule AshComputer.LiveViewIntegrationTest do
       computer = AshComputer.computer(TestLive, :calculator)
 
       # Check initial values
-      assert computer.values["x"] == 10
-      assert computer.values["y"] == 5
-      assert computer.values["sum"] == 15
-      assert computer.values["product"] == 50
+      assert computer.values[:x] == 10
+      assert computer.values[:y] == 5
+      assert computer.values[:sum] == 15
+      assert computer.values[:product] == 50
 
       # Update a value
-      computer = AshComputer.Runtime.handle_input(computer, "x", 20)
+      computer = AshComputer.Runtime.handle_input(computer, :x, 20)
 
       # Check computed values update
-      assert computer.values["x"] == 20
-      assert computer.values["y"] == 5
-      assert computer.values["sum"] == 25
-      assert computer.values["product"] == 100
+      assert computer.values[:x] == 20
+      assert computer.values[:y] == 5
+      assert computer.values[:sum] == 25
+      assert computer.values[:product] == 100
     end
 
   end

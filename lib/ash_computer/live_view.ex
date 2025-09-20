@@ -17,7 +17,7 @@ defmodule AshComputer.LiveView do
           end
 
           val :total do
-            compute(fn %{"items" => items} -> Enum.sum(items) end)
+            compute(fn %{items: items} -> Enum.sum(items) end)
           end
 
           event :add_item do
@@ -136,7 +136,9 @@ defmodule AshComputer.LiveView.Helpers do
     assigns =
       computer.values
       |> Enum.map(fn {key, value} ->
-        assign_name = String.to_atom("#{computer_name}_#{key}")
+        # Convert atom key to string for concatenation, then back to atom
+        key_str = if is_atom(key), do: Atom.to_string(key), else: key
+        assign_name = String.to_atom("#{computer_name}_#{key_str}")
         {assign_name, value}
       end)
 
@@ -164,10 +166,11 @@ defmodule AshComputer.LiveView.Helpers do
       end)
       |> Enum.reduce(%{}, fn {key, value}, acc ->
         key_str = Atom.to_string(key)
-        value_name = String.replace_prefix(key_str, "#{computer_name_str}_", "")
+        value_name_str = String.replace_prefix(key_str, "#{computer_name_str}_", "")
+        value_name = String.to_atom(value_name_str)
 
         # Only update inputs, not computed vals
-        if value_name in Map.keys(computer.values) do
+        if Map.has_key?(computer.values, value_name) do
           Map.put(acc, value_name, value)
         else
           acc

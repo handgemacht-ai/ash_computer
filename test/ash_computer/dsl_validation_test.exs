@@ -12,7 +12,7 @@ defmodule AshComputer.DslValidationTest do
             end
 
             val :result do
-              compute(fn %{"a" => a, "b" => b} ->
+              compute(fn %{a: a, b: b} ->
                 a + b
               end)
             end
