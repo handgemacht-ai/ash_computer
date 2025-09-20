@@ -24,7 +24,7 @@ defmodule AshComputer.Dsl do
       name: [type: :atom, doc: "The name of the val."],
       type: [type: :atom, doc: "Datatype tag carried alongside the val."],
       description: [type: :string, doc: "Human readable description."],
-      compute: [type: :any, required: true, doc: "Function that computes the value."]
+      compute: [type: :quoted, required: true, doc: "Function that computes the value."]
     ]
   }
 

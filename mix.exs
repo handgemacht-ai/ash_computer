@@ -11,7 +11,7 @@ defmodule AshComputer.MixProject do
 
   def project do
     [
-      app: :ash_scenario,
+      app: :ash_computer,
       version: @version,
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -64,7 +64,7 @@ defmodule AshComputer.MixProject do
 
   defp package do
     [
-      name: :ash_scenario,
+      name: :ash_computer,
       licenses: ["MIT"],
       files:
         ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md CHANGELOG* documentation),
@@ -82,6 +82,7 @@ defmodule AshComputer.MixProject do
       {:claude, "~> 0.5", only: [:dev], runtime: false},
       {:ash, "~> 3.5 and >= 3.5.5"},
       {:spark, "~> 2.2"},
+      {:computer, path: "../computer"},
       # Dev/test dependencies
       {:git_hooks, "~> 0.8.0", only: [:dev], runtime: false},
       {:ex_check, "~> 0.12", only: [:dev, :test]},

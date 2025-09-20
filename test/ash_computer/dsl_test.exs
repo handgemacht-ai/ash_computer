@@ -46,6 +46,7 @@ defmodule AshComputer.DslTest do
 
   test "builds and evaluates a computer" do
     computer = AshComputer.computer(PaceComputer)
+    dbg(computer)
 
     assert computer.name == "Pace"
     assert computer.values["pace"] == 3.0

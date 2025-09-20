@@ -44,15 +44,20 @@ defmodule AshComputer.Builder do
 
   defp add_vals(computer, vals) do
     Enum.reduce(vals, computer, fn %Val{} = val, acc ->
+      # Parse dependencies from the quoted AST if not explicitly set
+      dependencies = get_dependencies(val)
+
+      # Compile the quoted AST into a function
+      compute_fun = compile_compute_function(val.compute)
+
       val_struct =
         Computer.Val.new(
           normalize_name(val.name),
           val.description,
           val.type,
-          val.compute
+          compute_fun
         )
 
-      dependencies = get_dependencies(val)
       Computer.add_val(acc, val_struct, dependencies)
     end)
   end
@@ -61,8 +66,9 @@ defmodule AshComputer.Builder do
     Enum.map(depends_on, &normalize_name/1)
   end
 
-  defp get_dependencies(%Val{depends_on: nil, compute: compute}) do
-    infer_dependencies(compute) || []
+  defp get_dependencies(%Val{depends_on: nil, compute: compute_ast}) do
+    # Parse dependencies from the quoted AST
+    AshComputer.AstParser.parse_quoted_function(compute_ast)
   end
 
   defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
@@ -82,22 +88,9 @@ defmodule AshComputer.Builder do
 
   defp default_display_name(name) when is_binary(name), do: name
 
-  defp infer_dependencies(compute) when is_function(compute) do
-    # Try to infer dependencies from function info
-    case Function.info(compute, :env) do
-      [] ->
-        # No captured variables, try to check arity and assume pattern matching
-        case Function.info(compute, :arity) do
-          1 -> []  # Assume it pattern matches on arguments
-          2 -> []  # Assume it pattern matches on arguments
-          _ -> []
-        end
-
-      _ ->
-        # Has captured variables, can't easily infer
-        []
-    end
+  defp compile_compute_function(quoted_ast) do
+    # Convert quoted AST to a function
+    {fun, _binding} = Code.eval_quoted(quoted_ast)
+    fun
   end
-
-  defp infer_dependencies(_), do: []
 end
