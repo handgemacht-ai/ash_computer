@@ -46,7 +46,6 @@ defmodule AshComputer.DslTest do
 
   test "builds and evaluates a computer" do
     computer = AshComputer.computer(PaceComputer)
-    dbg(computer)
 
     assert computer.name == "Pace"
     assert computer.values["pace"] == 3.0
@@ -76,5 +75,45 @@ defmodule AshComputer.DslTest do
     assert computer.values["time"] == 45
     assert computer.values["distance"] == 9
     assert computer.values["pace"] == 5.0
+  end
+
+  defmodule ChainedComputer do
+    use AshComputer
+
+    computer :chained do
+      input :base_value do
+        type :integer
+        initial 10
+        description "Base value for calculations"
+      end
+
+      val :doubled do
+        type :integer
+        description "Double the base value"
+        compute(fn %{"base_value" => base} -> base * 2 end)
+      end
+
+      val :quadrupled do
+        type :integer
+        description "Double the doubled value"
+        compute(fn %{"doubled" => doubled} -> doubled * 2 end)
+      end
+    end
+  end
+
+  test "vals can depend on other vals" do
+    computer = AshComputer.computer(ChainedComputer)
+
+    # Initial values should be computed correctly through the chain
+    assert computer.values["base_value"] == 10
+    assert computer.values["doubled"] == 20
+    assert computer.values["quadrupled"] == 40
+
+    # Update the input and verify the chain updates
+    computer = CoreComputer.handle_input(computer, "base_value", 5)
+
+    assert computer.values["base_value"] == 5
+    assert computer.values["doubled"] == 10
+    assert computer.values["quadrupled"] == 20
   end
 end

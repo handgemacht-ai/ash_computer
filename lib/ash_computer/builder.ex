@@ -44,7 +44,7 @@ defmodule AshComputer.Builder do
 
   defp add_vals(computer, vals) do
     Enum.reduce(vals, computer, fn %Val{} = val, acc ->
-      # Parse dependencies from the quoted AST if not explicitly set
+      # Dependencies are parsed at compile time by the transformer
       dependencies = get_dependencies(val)
 
       # Compile the quoted AST into a function
@@ -62,13 +62,9 @@ defmodule AshComputer.Builder do
     end)
   end
 
-  defp get_dependencies(%Val{depends_on: depends_on}) when is_list(depends_on) do
-    Enum.map(depends_on, &normalize_name/1)
-  end
-
-  defp get_dependencies(%Val{depends_on: nil, compute: compute_ast}) do
-    # Parse dependencies from the quoted AST
-    AshComputer.AstParser.parse_quoted_function(compute_ast)
+  defp get_dependencies(%Val{depends_on: depends_on}) do
+    # Always use compile-time parsed dependencies
+    Enum.map(depends_on || [], &normalize_name/1)
   end
 
   defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
