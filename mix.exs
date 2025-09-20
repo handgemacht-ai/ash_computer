@@ -82,7 +82,6 @@ defmodule AshComputer.MixProject do
       {:claude, "~> 0.5", only: [:dev], runtime: false},
       {:ash, "~> 3.5 and >= 3.5.5"},
       {:spark, "~> 2.2"},
-      {:computer, path: "../computer"},
       # Dev/test dependencies
       {:git_hooks, "~> 0.8.0", only: [:dev], runtime: false},
       {:ex_check, "~> 0.12", only: [:dev, :test]},

@@ -176,9 +176,9 @@ defmodule AshComputer.LiveView.Helpers do
 
     # Apply input updates to the computer
     Enum.reduce(current_values, computer, fn {input_name, value}, acc ->
-      # Check if this is an input (not a val) by looking at the names map
-      if Map.get(acc.private.names, input_name) == :input do
-        Computer.handle_input(acc, input_name, value)
+      # Check if this is an input (not a val)
+      if Map.has_key?(acc.inputs, input_name) do
+        AshComputer.Runtime.handle_input(acc, input_name, value)
       else
         acc
       end

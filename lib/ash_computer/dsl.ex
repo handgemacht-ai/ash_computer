@@ -8,7 +8,6 @@ defmodule AshComputer.Dsl do
     target: AshComputer.Dsl.Input,
     schema: [
       name: [type: :atom, required: true, doc: "The name of the input."],
-      type: [type: :atom, required: true, doc: "Datatype tag carried alongside the input."],
       description: [type: :string, doc: "Human readable description."],
       initial: [type: :any, doc: "Initial value provided when the computer is built."],
       options: [type: :any, doc: "Domain specific metadata passed to Computer.Input."]
@@ -22,7 +21,6 @@ defmodule AshComputer.Dsl do
     target: AshComputer.Dsl.Val,
     schema: [
       name: [type: :atom, doc: "The name of the val."],
-      type: [type: :atom, doc: "Datatype tag carried alongside the val."],
       description: [type: :string, doc: "Human readable description."],
       compute: [type: :quoted, required: true, doc: "Function that computes the value."],
       depends_on: [type: {:list, :atom}, doc: "Explicit dependencies (auto-detected if not provided)."]

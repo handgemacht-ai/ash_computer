@@ -10,36 +10,32 @@ defmodule AshComputer.LiveViewIntegrationTest do
 
     computer :calculator do
       input :x do
-        type :number
         initial 10
       end
 
       input :y do
-        type :number
         initial 5
       end
 
       val :sum do
-        type :number
         compute(fn %{"x" => x, "y" => y} -> x + y end)
       end
 
       val :product do
-        type :number
         compute(fn %{"x" => x, "y" => y} -> x * y end)
       end
 
       event :set_x do
         handle fn computer, %{"value" => value} ->
-          Computer.handle_input(computer, "x", value)
+          AshComputer.Runtime.handle_input(computer, "x", value)
         end
       end
 
       event :reset do
         handle fn computer, _params ->
           computer
-          |> Computer.handle_input("x", 10)
-          |> Computer.handle_input("y", 5)
+          |> AshComputer.Runtime.handle_input("x", 10)
+          |> AshComputer.Runtime.handle_input("y", 5)
         end
       end
     end
@@ -62,7 +58,7 @@ defmodule AshComputer.LiveViewIntegrationTest do
       assert computer.values["product"] == 50
 
       # Update a value
-      computer = Computer.handle_input(computer, "x", 20)
+      computer = AshComputer.Runtime.handle_input(computer, "x", 20)
 
       # Check computed values update
       assert computer.values["x"] == 20

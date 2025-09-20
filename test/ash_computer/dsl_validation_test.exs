@@ -9,7 +9,6 @@ defmodule AshComputer.DslValidationTest do
 
           computer :test do
             input :a do
-              type :integer
             end
 
             val :result do

@@ -1,28 +1,25 @@
 defmodule AshComputer.DslTest do
   use ExUnit.Case, async: false
 
-  alias Computer, as: CoreComputer
+  alias AshComputer.Runtime, as: CoreComputer
 
   defmodule PaceComputer do
     use AshComputer
 
-    alias Computer, as: CoreComputer
+    alias AshComputer.Runtime, as: CoreComputer
 
     computer :pace do
       input :time do
-        type :number
         initial 30
         description "Running time in minutes"
       end
 
       input :distance do
-        type :number
         initial 10
         description "Running distance in km"
       end
 
       val :pace do
-        type :number
         description "Minutes per kilometer"
         compute(fn %{"time" => time, "distance" => distance} -> time / distance end)
       end
@@ -82,19 +79,16 @@ defmodule AshComputer.DslTest do
 
     computer :chained do
       input :base_value do
-        type :integer
         initial 10
         description "Base value for calculations"
       end
 
       val :doubled do
-        type :integer
         description "Double the base value"
         compute(fn %{"base_value" => base} -> base * 2 end)
       end
 
       val :quadrupled do
-        type :integer
         description "Double the doubled value"
         compute(fn %{"doubled" => doubled} -> doubled * 2 end)
       end

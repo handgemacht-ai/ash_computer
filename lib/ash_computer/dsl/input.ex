@@ -6,11 +6,10 @@ defmodule AshComputer.Dsl.Input do
   @type t :: %__MODULE__{
           __identifier__: name(),
           name: name(),
-          type: atom(),
           description: String.t() | nil,
           initial: any(),
           options: keyword() | map() | nil
         }
 
-  defstruct [:__identifier__, :name, :type, :description, :initial, :options]
+  defstruct [:__identifier__, :name, :description, :initial, :options]
 end

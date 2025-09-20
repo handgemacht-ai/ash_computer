@@ -4,6 +4,7 @@ defmodule AshComputer.Builder do
   alias AshComputer.Dsl.Computer, as: ComputerDefinition
   alias AshComputer.Dsl.Input
   alias AshComputer.Dsl.Val
+  alias AshComputer.Runtime
 
   def build_builder(%ComputerDefinition{} = definition, _module) do
     fn ->
@@ -14,7 +15,7 @@ defmodule AshComputer.Builder do
   defp build_computer(%ComputerDefinition{stateful?: true} = definition) do
     display_name = definition.description || default_display_name(definition.name)
 
-    Computer.new_stateful(display_name)
+    Runtime.new_stateful(display_name)
     |> add_inputs(definition.inputs)
     |> add_vals(definition.vals)
   end
@@ -22,23 +23,20 @@ defmodule AshComputer.Builder do
   defp build_computer(%ComputerDefinition{} = definition) do
     display_name = definition.description || default_display_name(definition.name)
 
-    Computer.new(display_name)
+    Runtime.new(display_name)
     |> add_inputs(definition.inputs)
     |> add_vals(definition.vals)
   end
 
   defp add_inputs(computer, inputs) do
     Enum.reduce(inputs, computer, fn %Input{} = input, acc ->
-      input_struct =
-        Computer.Input.new(
-          normalize_name(input.name),
-          input.description,
-          input.type,
-          input.initial,
-          Map.get(input, :options, [])
-        )
-
-      Computer.add_input(acc, input_struct)
+      Runtime.add_input(
+        acc,
+        normalize_name(input.name),
+        input.initial,
+        input.description,
+        Map.get(input, :options, [])
+      )
     end)
   end
 
@@ -50,15 +48,13 @@ defmodule AshComputer.Builder do
       # Compile the quoted AST into a function
       compute_fun = compile_compute_function(val.compute)
 
-      val_struct =
-        Computer.Val.new(
-          normalize_name(val.name),
-          val.description,
-          val.type,
-          compute_fun
-        )
-
-      Computer.add_val(acc, val_struct, dependencies)
+      Runtime.add_val(
+        acc,
+        normalize_name(val.name),
+        val.description,
+        compute_fun,
+        dependencies
+      )
     end)
   end
 

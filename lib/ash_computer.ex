@@ -46,7 +46,7 @@ defmodule AshComputer do
 
   def make_instance(module, name, opts) do
     computer(module, name)
-    |> Computer.make_instance(opts)
+    |> AshComputer.Runtime.make_instance(opts)
   end
 
   @doc "Get event names for a computer."
@@ -113,7 +113,7 @@ defmodule AshComputer do
     ensure_computer!(result, name, event_name)
   end
 
-  defp ensure_computer!(%Computer{} = computer, _name, _event_name), do: computer
+  defp ensure_computer!(%AshComputer.Runtime{} = computer, _name, _event_name), do: computer
 
   defp ensure_computer!(_other, name, event_name) do
     raise ArgumentError,
