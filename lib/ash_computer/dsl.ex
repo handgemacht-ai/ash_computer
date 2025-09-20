@@ -23,7 +23,10 @@ defmodule AshComputer.Dsl do
       name: [type: :atom, doc: "The name of the val."],
       description: [type: :string, doc: "Human readable description."],
       compute: [type: :quoted, required: true, doc: "Function that computes the value."],
-      depends_on: [type: {:list, :atom}, doc: "Explicit dependencies (auto-detected if not provided)."]
+      depends_on: [
+        type: {:list, :atom},
+        doc: "Explicit dependencies (auto-detected if not provided)."
+      ]
     ]
   }
 

@@ -21,11 +21,11 @@ defmodule AshComputer.DslTest do
 
       val :pace do
         description "Minutes per kilometer"
-        compute(fn %{time: time, distance: distance} -> time / distance end)
+        compute fn %{time: time, distance: distance} -> time / distance end
       end
 
-      event(:reset, handle: &__MODULE__.reset/1)
-      event(:load, handle: &__MODULE__.load/2)
+      event :reset, handle: &__MODULE__.reset/1
+      event :load, handle: &__MODULE__.load/2
     end
 
     def reset(computer) do
@@ -85,12 +85,12 @@ defmodule AshComputer.DslTest do
 
       val :doubled do
         description "Double the base value"
-        compute(fn %{base_value: base} -> base * 2 end)
+        compute fn %{base_value: base} -> base * 2 end
       end
 
       val :quadrupled do
         description "Double the doubled value"
-        compute(fn %{doubled: doubled} -> doubled * 2 end)
+        compute fn %{doubled: doubled} -> doubled * 2 end
       end
     end
   end

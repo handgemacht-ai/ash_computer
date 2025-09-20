@@ -42,7 +42,9 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
   defp validate_val_dependencies(val, available_names, computer_name) do
     # depends_on is a list of atoms after parsing
     case val.depends_on do
-      nil -> :ok
+      nil ->
+        :ok
+
       dependencies when is_list(dependencies) ->
         Enum.each(dependencies, fn dep ->
           unless MapSet.member?(available_names, dep) do
@@ -51,7 +53,9 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
               message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
           end
         end)
-      _ -> :ok
+
+      _ ->
+        :ok
     end
   end
 end

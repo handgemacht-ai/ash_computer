@@ -72,7 +72,7 @@ defmodule AshComputer.LiveView do
       |> List.flatten()
 
     quote do
-      unquote_splicing(event_handlers)
+      (unquote_splicing(event_handlers))
     end
   end
 
@@ -86,16 +86,18 @@ defmodule AshComputer.LiveView do
         computer = get_computer_from_assigns(socket, unquote(computer_name), unquote(module))
 
         # Apply the event
-        updated_computer = AshComputer.apply_event(
-          unquote(module),
-          unquote(computer_name),
-          unquote(event_name),
-          computer,
-          params
-        )
+        updated_computer =
+          AshComputer.apply_event(
+            unquote(module),
+            unquote(computer_name),
+            unquote(event_name),
+            computer,
+            params
+          )
 
         # Sync updated values back to assigns
-        updated_socket = sync_computer_to_assigns(socket, unquote(computer_name), updated_computer)
+        updated_socket =
+          sync_computer_to_assigns(socket, unquote(computer_name), updated_computer)
 
         {:noreply, updated_socket}
       end
