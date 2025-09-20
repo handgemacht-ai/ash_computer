@@ -20,7 +20,7 @@ defmodule AshComputer.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      dialyzer: [plt_add_apps: [:ash, :mix]],
+      dialyzer: [plt_add_apps: [:mix]],
       description: @description,
       source_url: @source_url,
       homepage_url: @source_url,
@@ -80,7 +80,6 @@ defmodule AshComputer.MixProject do
     [
       {:usage_rules, "~> 0.1", only: [:dev]},
       {:claude, "~> 0.5", only: [:dev], runtime: false},
-      {:ash, "~> 3.5 and >= 3.5.5"},
       {:spark, "~> 2.2"},
       # Dev/test dependencies
       {:git_hooks, "~> 0.8.0", only: [:dev], runtime: false},
@@ -91,8 +90,7 @@ defmodule AshComputer.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.1", optional: true},
-      {:phoenix_live_view, "~> 1.1.8", optional: true},
-      {:clarity, "~> 0.1", optional: true}
+      {:phoenix_live_view, "~> 1.1.8", optional: true}
     ]
   end
 
