@@ -12,14 +12,6 @@ defmodule AshComputer.Builder do
     end
   end
 
-  defp build_computer(%ComputerDefinition{stateful?: true} = definition) do
-    display_name = definition.description || default_display_name(definition.name)
-
-    Runtime.new_stateful(display_name)
-    |> add_inputs(definition.inputs)
-    |> add_vals(definition.vals)
-  end
-
   defp build_computer(%ComputerDefinition{} = definition) do
     display_name = definition.description || default_display_name(definition.name)
 

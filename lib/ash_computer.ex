@@ -38,17 +38,6 @@ defmodule AshComputer do
     end
   end
 
-  @doc "Create a computer instance with options."
-  def make_instance(module, opts \\ []) do
-    name = Info.default_computer_name(module)
-    make_instance(module, name, opts)
-  end
-
-  def make_instance(module, name, opts) do
-    computer(module, name)
-    |> AshComputer.Runtime.make_instance(opts)
-  end
-
   @doc "Get event names for a computer."
   def events(module, name \\ nil) do
     name = name || Info.default_computer_name(module)
