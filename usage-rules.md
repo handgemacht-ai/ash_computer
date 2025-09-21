@@ -45,10 +45,8 @@ defmodule MyApp.Calculator do
     end
 
     event :reset do
-      handle fn computer, _payload ->
-        computer
-        |> AshComputer.Runtime.handle_input(:x, 0)
-        |> AshComputer.Runtime.handle_input(:y, 0)
+      handle fn _values, _payload ->
+        %{x: 0, y: 0}
       end
     end
   end
@@ -142,23 +140,38 @@ computer.values[:product]  # => new product with x=42
 
 ## Events
 
-Events provide named handlers for complex state mutations:
+Events provide named handlers for complex state mutations. Event handlers receive all current values (inputs and vals) and can return a map of input changes.
 
 ### Defining Events
 
+Event handlers use pattern matching to access current values:
+
 ```elixir
 event :load_preset do
-  handle fn computer, %{preset: preset} ->
+  handle fn _values, %{preset: preset} ->
     case preset do
       :default ->
-        computer
-        |> AshComputer.Runtime.handle_input(:x, 10)
-        |> AshComputer.Runtime.handle_input(:y, 5)
-
+        %{x: 10, y: 5}
       :test ->
-        computer
-        |> AshComputer.Runtime.handle_input(:x, 100)
-        |> AshComputer.Runtime.handle_input(:y, 50)
+        %{x: 100, y: 50}
+    end
+  end
+end
+
+# Pattern matching on specific values
+event :scale do
+  handle fn %{x: x, y: y}, %{factor: factor} ->
+    %{x: x * factor, y: y * factor}
+  end
+end
+
+# Using computed vals to determine input changes
+event :adjust_based_on_sum do
+  handle fn %{x: x, y: y, sum: sum}, _payload ->
+    if sum > 100 do
+      %{x: x / 2, y: y / 2}
+    else
+      %{}  # No changes
     end
   end
 end
@@ -171,20 +184,25 @@ Events support two handler arities:
 ```elixir
 # Arity 1: No payload needed
 event :reset do
-  handle fn computer ->
-    # Reset logic
+  handle fn values ->
+    %{x: 0, y: 0}  # Return input changes
   end
 end
 
 # Arity 2: With payload
 event :update do
-  handle fn computer, payload ->
-    # Use payload data
+  handle fn values, payload ->
+    %{x: payload[:new_x], y: values[:y]}  # Mix payload and current values
   end
 end
 ```
 
-**Important**: Event handlers MUST return an updated computer struct.
+**Important Rules**:
+- Handlers receive all values (inputs + vals) for pattern matching
+- Handlers MUST return a map of input changes (not the full computer)
+- Only inputs can be modified in the returned map
+- Vals are read-only and automatically recomputed
+- Return an empty map `%{}` for no changes
 
 ### Applying Events
 

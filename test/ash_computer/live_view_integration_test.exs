@@ -26,16 +26,14 @@ defmodule AshComputer.LiveViewIntegrationTest do
       end
 
       event :set_x do
-        handle fn computer, %{value: value} ->
-          AshComputer.Runtime.handle_input(computer, :x, value)
+        handle fn _values, %{value: value} ->
+          %{x: value}
         end
       end
 
       event :reset do
-        handle fn computer, _params ->
-          computer
-          |> AshComputer.Runtime.handle_input(:x, 10)
-          |> AshComputer.Runtime.handle_input(:y, 5)
+        handle fn _values, _params ->
+          %{x: 10, y: 5}
         end
       end
     end

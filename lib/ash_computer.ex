@@ -97,26 +97,41 @@ defmodule AshComputer do
   end
 
   defp apply_event_handler(handler, computer, payload, name, event_name) do
-    result =
+    # Extract all values (inputs + vals) from the computer
+    values = computer.values
+
+    # Call handler with values and payload
+    changes =
       cond do
         is_function(handler, 1) ->
-          handler.(computer)
+          handler.(values)
 
         is_function(handler, 2) ->
-          handler.(computer, payload)
+          handler.(values, payload)
 
         true ->
           raise ArgumentError,
                 "Event #{inspect(event_name)} for #{inspect(name)} expects a capture of arity 1 or 2, got: #{inspect(handler)}"
       end
 
-    ensure_computer!(result, name, event_name)
-  end
+    # Ensure changes is a map
+    unless is_map(changes) do
+      raise ArgumentError,
+            "Event #{inspect(event_name)} for #{inspect(name)} must return a map of input changes, got: #{inspect(changes)}"
+    end
 
-  defp ensure_computer!(%AshComputer.Runtime{} = computer, _name, _event_name), do: computer
+    # Validate that all keys in changes are valid inputs
+    invalid_keys = Map.keys(changes) -- Map.keys(computer.inputs)
 
-  defp ensure_computer!(_other, name, event_name) do
-    raise ArgumentError,
-          "Event #{inspect(event_name)} for #{inspect(name)} must return a Computer struct"
+    unless invalid_keys == [] do
+      raise ArgumentError,
+            "Event #{inspect(event_name)} for #{inspect(name)} tried to modify non-input values: #{inspect(invalid_keys)}. " <>
+              "Only inputs can be modified. Available inputs: #{inspect(Map.keys(computer.inputs))}"
+    end
+
+    # Apply the changes to the computer
+    Enum.reduce(changes, computer, fn {input_name, value}, acc ->
+      AshComputer.Runtime.handle_input(acc, input_name, value)
+    end)
   end
 end

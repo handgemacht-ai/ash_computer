@@ -90,9 +90,9 @@ defmodule MyApp.TemperatureConverter do
     end
 
     event :set_from_fahrenheit do
-      handle fn computer, %{fahrenheit: f} ->
+      handle fn _values, %{fahrenheit: f} ->
         celsius = (f - 32) * 5/9
-        AshComputer.Runtime.handle_input(computer, :celsius, celsius)
+        %{celsius: celsius}
       end
     end
   end
@@ -140,9 +140,9 @@ defmodule MyAppWeb.CalculatorLive do
     end
 
     event :update_amount do
-      handle fn computer, %{"value" => value} ->
+      handle fn _values, %{"value" => value} ->
         {amount, _} = Float.parse(value)
-        AshComputer.Runtime.handle_input(computer, :amount, amount)
+        %{amount: amount}
       end
     end
   end
