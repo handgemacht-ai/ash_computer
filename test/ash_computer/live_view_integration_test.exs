@@ -18,11 +18,11 @@ defmodule AshComputer.LiveViewIntegrationTest do
       end
 
       val :sum do
-        compute(fn %{x: x, y: y} -> x + y end)
+        compute fn %{x: x, y: y} -> x + y end
       end
 
       val :product do
-        compute(fn %{x: x, y: y} -> x * y end)
+        compute fn %{x: x, y: y} -> x * y end
       end
 
       event :set_x do
@@ -66,7 +66,6 @@ defmodule AshComputer.LiveViewIntegrationTest do
       assert computer.values[:sum] == 25
       assert computer.values[:product] == 100
     end
-
   end
 
   describe "event handler generation" do

@@ -3,7 +3,8 @@ spark_locals_without_parens = [
   description: 1,
   event: 1,
   event: 2,
-  initial: 1
+  initial: 1,
+  handle: 1
 ]
 
 [
