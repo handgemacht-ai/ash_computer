@@ -91,6 +91,28 @@ defmodule AshComputer.DslTest do
     end
   end
 
+  defmodule AliasedComputer do
+    use AshComputer
+
+    # This alias is used in the compute function to test alias resolution
+    alias Enum, as: MyEnum
+
+    computer :aliased do
+      input :numbers do
+        initial [1, 2, 3]
+        description "A list of numbers"
+      end
+
+      val :sum do
+        description "Sum using aliased Enum"
+        compute fn %{numbers: numbers} ->
+          # This uses the alias and should work after our fix
+          MyEnum.sum(numbers)
+        end
+      end
+    end
+  end
+
   test "vals can depend on other vals" do
     computer = AshComputer.computer(ChainedComputer)
 
@@ -209,6 +231,13 @@ defmodule AshComputer.DslTest do
       AshComputer.apply_event(PatternMatchComputer, :pattern_match, :no_changes, computer, nil)
 
     assert computer.values == old_values
+  end
+
+  test "aliased modules work in compute functions" do
+    computer = AshComputer.computer(AliasedComputer)
+
+    # The compute function uses the aliased module MyEnum, which should resolve to Enum
+    assert computer.values[:sum] == 6
   end
 
   defmodule ValidationComputer do
