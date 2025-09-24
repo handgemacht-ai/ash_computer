@@ -9,9 +9,15 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
   def verify(dsl_state) do
     computers = Verifier.get_entities(dsl_state, [:computers])
 
-    Enum.each(computers, &validate_computer/1)
+    errors =
+      computers
+      |> Enum.flat_map(&validate_computer/1)
 
-    :ok
+    case errors do
+      [] -> :ok
+      [error] -> {:error, error}
+      errors -> {:error, errors}
+    end
   end
 
   defp validate_computer(computer) do
@@ -21,10 +27,9 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
       |> add_input_names(computer.inputs)
       |> add_val_names(computer.vals)
 
-    # Validate each val's dependencies
-    Enum.each(computer.vals, fn val ->
-      validate_val_dependencies(val, available_names, computer.name)
-    end)
+    # Validate each val's dependencies and collect errors
+    computer.vals
+    |> Enum.flat_map(&validate_val_dependencies(&1, available_names, computer.name))
   end
 
   defp add_input_names(set, inputs) do
@@ -43,27 +48,31 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
     # depends_on is a list of atoms after parsing
     case val.depends_on do
       nil ->
-        :ok
+        []
 
       dependencies when is_list(dependencies) ->
         validate_dependencies_list(dependencies, available_names, val, computer_name)
 
       _ ->
-        :ok
+        []
     end
   end
 
   defp validate_dependencies_list(dependencies, available_names, val, computer_name) do
-    Enum.each(dependencies, fn dep ->
-      validate_single_dependency(dep, available_names, val, computer_name)
-    end)
+    dependencies
+    |> Enum.flat_map(&validate_single_dependency(&1, available_names, val, computer_name))
   end
 
   defp validate_single_dependency(dep, available_names, val, computer_name) do
-    unless MapSet.member?(available_names, dep) do
-      raise Spark.Error.DslError,
-        path: [:computers, computer_name, :vals, val.name],
-        message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
+    if MapSet.member?(available_names, dep) do
+      []
+    else
+      [
+        Spark.Error.DslError.exception(
+          path: [:computers, computer_name, :vals, val.name],
+          message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
+        )
+      ]
     end
   end
 end
