@@ -3,15 +3,18 @@ defmodule AshComputer.Transformers.CompileComputers do
 
   use Spark.Dsl.Transformer
 
+  alias Spark.Dsl.Transformer
+  alias Spark.Error.DslError
+
   @impl true
   def transform(dsl_state) do
-    computers = Spark.Dsl.Transformer.get_entities(dsl_state, [:computers])
+    computers = Transformer.get_entities(dsl_state, [:computers])
 
     if Enum.empty?(computers) do
-      module = Spark.Dsl.Transformer.get_persisted(dsl_state, :module)
+      module = Transformer.get_persisted(dsl_state, :module)
 
       {:error,
-       Spark.Error.DslError.exception(
+       DslError.exception(
          module: module,
          path: [:computers],
          message: "define at least one computer"
@@ -24,7 +27,7 @@ defmodule AshComputer.Transformers.CompileComputers do
         |> Map.fetch!(:name)
 
       dsl_state
-      |> Spark.Dsl.Transformer.persist(:ash_computer_default_name, default_name)
+      |> Transformer.persist(:ash_computer_default_name, default_name)
       |> then(&{:ok, &1})
     end
   end

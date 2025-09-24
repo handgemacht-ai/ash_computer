@@ -67,8 +67,7 @@ defmodule AshComputer.Builder do
     |> Atom.to_string()
     |> String.replace("_", " ")
     |> String.split(~r/\s+/, trim: true)
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   defp default_display_name(name) when is_binary(name), do: name

@@ -297,17 +297,43 @@ LiveView integration automatically generates `handle_event/3` callbacks for each
 ```elixir
 # Event :set_x generates handler for "calculator_set_x" event
 # Event :reset generates handler for "calculator_reset" event
+```
 
-# In your template:
+**Event naming pattern**: `{computer_name}_{event_name}`
+
+### Compile-Time Safe Event References
+
+**Always use the `event/2` macro** instead of hardcoded strings in templates:
+
+```heex
+<!-- ✅ ALWAYS do this - compile-time safe -->
+<form phx-submit={event(:calculator, :set_x)}>
+  <input name="value" value={@calculator_x} />
+  <button type="submit">Update</button>
+</form>
+
+<button phx-click={event(:calculator, :reset)}>Reset</button>
+
+<!-- ❌ NEVER do this - error-prone hardcoded strings -->
 <form phx-submit="calculator_set_x">
-  <input name="value" value={@calculator.values[:x]} />
+  <input name="value" value={@calculator_x} />
   <button type="submit">Update</button>
 </form>
 
 <button phx-click="calculator_reset">Reset</button>
 ```
 
-**Event naming pattern**: `{computer_name}_{event_name}`
+The `event/2` macro provides:
+- **Compile-time validation**: Ensures computer and event exist
+- **Error prevention**: Typos cause compilation failures, not runtime errors
+- **Refactoring safety**: Renaming events causes compile errors in templates
+- **IDE support**: Better auto-completion and navigation
+
+**Error example**: Using `event(:calculator, :nonexistent)` produces:
+```
+** (CompileError) Event :nonexistent not found in computer :calculator
+Available events: [:set_x, :reset]
+```
 
 ## API Functions
 
@@ -522,11 +548,30 @@ computer = AshComputer.computer(MyModule, :calculator)
 
 ### LiveView Event Naming
 ```elixir
-# Error: Event handler not triggered
-# Wrong event name in template
+# Error: Event handler not triggered or typos in event names
+# Wrong hardcoded event name in template
 <button phx-click="reset">Reset</button>
+<button phx-click="calculator_rset">Reset</button>  # Typo!
 
-# Fix: Use the full event name pattern
-<button phx-click="calculator_reset">Reset</button>
-# Pattern: {computer_name}_{event_name}
+# Fix: Always use the event/2 macro for compile-time safety
+<button phx-click={event(:calculator, :reset)}>Reset</button>
+```
+
+The `event/2` macro prevents these common errors:
+- Typos in computer or event names (caught at compile-time)
+- Using wrong event name patterns
+- Forgetting to update template when renaming events
+
+### Event Reference Errors
+```elixir
+# Error: Compile-time error for invalid event reference
+<button phx-click={event(:calculator, :nonexistent)}>Invalid</button>
+# => ** (CompileError) Event :nonexistent not found in computer :calculator
+
+# Error: Compile-time error for invalid computer reference
+<button phx-click={event(:nonexistent, :reset)}>Invalid</button>
+# => ** (CompileError) Computer :nonexistent not found in module MyLive
+
+# Fix: Use valid computer and event names
+<button phx-click={event(:calculator, :reset)}>Reset</button>
 ```

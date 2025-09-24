@@ -111,6 +111,61 @@ defmodule AshComputer.LiveView.Helpers do
   """
 
   @doc """
+  Compile-time safe event name reference for use in HEEx templates.
+
+  Returns the properly formatted event name string and validates that
+  both the computer and event exist at compile-time.
+
+  ## Examples
+
+      # In templates:
+      <button phx-click={event(:calculator, :reset)}>Reset</button>
+      <form phx-submit={event(:calculator, :set_x)}>...</form>
+
+  ## Compile-time validation
+
+  If the computer or event doesn't exist, compilation will fail with
+  a helpful error message listing available options.
+  """
+  defmacro event(computer_name, event_name) do
+    # We need to get the calling module to look up computers
+    caller_module = __CALLER__.module
+
+    # Validate the computer exists
+    computer = AshComputer.Info.computer(caller_module, computer_name)
+
+    unless computer do
+      available_computers = AshComputer.Info.computer_names(caller_module)
+
+      raise CompileError,
+        description:
+          "Computer #{inspect(computer_name)} not found in module #{inspect(caller_module)}. Available computers: #{inspect(available_computers)}",
+        file: __CALLER__.file,
+        line: __CALLER__.line
+    end
+
+    # Validate the event exists in the computer
+    event_exists = Enum.any?(computer.events, fn event -> event.name == event_name end)
+
+    unless event_exists do
+      available_events = Enum.map(computer.events, & &1.name)
+
+      raise CompileError,
+        description:
+          "Event #{inspect(event_name)} not found in computer #{inspect(computer_name)} of module #{inspect(caller_module)}. Available events: #{inspect(available_events)}",
+        file: __CALLER__.file,
+        line: __CALLER__.line
+    end
+
+    # Return the correctly formatted event string
+    event_string = "#{computer_name}_#{event_name}"
+
+    quote do
+      unquote(event_string)
+    end
+  end
+
+  @doc """
   Initializes all computers and syncs their values to socket assigns.
 
   Call this in your mount callback:

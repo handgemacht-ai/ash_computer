@@ -10,8 +10,8 @@ defmodule AshComputer do
   use Spark.Dsl,
     default_extensions: [extensions: [AshComputer.Dsl]]
 
-  alias AshComputer.Info
   alias AshComputer.Builder
+  alias AshComputer.Info
 
   @doc "Computer names declared in this module."
   def computers(module) do

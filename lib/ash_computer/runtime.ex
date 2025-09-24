@@ -80,7 +80,6 @@ defmodule AshComputer.Runtime do
     end
   end
 
-
   defp recompute_dependents(computer, changed_key, values, errors) do
     {status, values, errors, _visited} =
       do_recompute_dependents(computer, changed_key, values, errors, MapSet.new())

@@ -46,16 +46,24 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
         :ok
 
       dependencies when is_list(dependencies) ->
-        Enum.each(dependencies, fn dep ->
-          unless MapSet.member?(available_names, dep) do
-            raise Spark.Error.DslError,
-              path: [:computers, computer_name, :vals, val.name],
-              message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
-          end
-        end)
+        validate_dependencies_list(dependencies, available_names, val, computer_name)
 
       _ ->
         :ok
+    end
+  end
+
+  defp validate_dependencies_list(dependencies, available_names, val, computer_name) do
+    Enum.each(dependencies, fn dep ->
+      validate_single_dependency(dep, available_names, val, computer_name)
+    end)
+  end
+
+  defp validate_single_dependency(dep, available_names, val, computer_name) do
+    unless MapSet.member?(available_names, dep) do
+      raise Spark.Error.DslError,
+        path: [:computers, computer_name, :vals, val.name],
+        message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
     end
   end
 end

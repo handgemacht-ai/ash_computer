@@ -55,7 +55,7 @@ defmodule AshComputer.MixProject do
   end
 
   defp elixirc_paths(:test) do
-    ["test/support/", "lib/"]
+    ["test/support", "lib/"]
   end
 
   defp elixirc_paths(_env) do
@@ -90,7 +90,8 @@ defmodule AshComputer.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.1", optional: true},
-      {:phoenix_live_view, "~> 1.1.8", optional: true}
+      {:phoenix_live_view, "~> 1.1.8", optional: true},
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 

@@ -7,11 +7,13 @@ defmodule AshComputer.Transformers.ParseDependencies do
   """
 
   use Spark.Dsl.Transformer
+
   alias AshComputer.AstParser
+  alias Spark.Dsl.Transformer
 
   @impl true
   def transform(dsl_state) do
-    computers = Spark.Dsl.Transformer.get_entities(dsl_state, [:computers])
+    computers = Transformer.get_entities(dsl_state, [:computers])
 
     # Process each computer and update its vals with parsed dependencies
     updated_dsl_state =
@@ -39,7 +41,7 @@ defmodule AshComputer.Transformers.ParseDependencies do
     updated_computer = %{computer | vals: updated_vals}
 
     # Replace the specific computer entity in the DSL state
-    Spark.Dsl.Transformer.replace_entity(
+    Transformer.replace_entity(
       dsl_state,
       [:computers],
       updated_computer,

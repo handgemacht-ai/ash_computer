@@ -156,26 +156,49 @@ defmodule MyAppWeb.CalculatorLive do
   def render(assigns) do
     ~H"""
     <div>
-      <form phx-submit="calculator_update_amount">
+      <form phx-submit={event(:calculator, :update_amount)}>
         <label>
           Amount: $
           <input
             type="number"
             name="value"
-            value={@calculator.values[:amount]}
+            value={@calculator_amount}
             step="0.01"
           />
         </label>
         <button type="submit">Update</button>
       </form>
 
-      <p>Tax (8%): $<%= Float.round(@calculator.values[:tax], 2) %></p>
-      <p>Total: $<%= Float.round(@calculator.values[:total], 2) %></p>
+      <p>Tax (8%): $<%= Float.round(@calculator_tax, 2) %></p>
+      <p>Total: $<%= Float.round(@calculator_total, 2) %></p>
     </div>
     """
   end
 end
 ```
+
+### Compile-Time Safe Event References
+
+AshComputer provides compile-time validation for event names in templates:
+
+```heex
+<!-- ✅ Compile-time safe - validates computer and event exist -->
+<button phx-click={event(:calculator, :reset)}>Reset</button>
+<form phx-submit={event(:calculator, :update_amount)}>...</form>
+
+<!-- ❌ Old way - error-prone hardcoded strings -->
+<button phx-click="calculator_reset">Reset</button>
+<form phx-submit="calculator_update_amount">...</form>
+```
+
+If you reference a non-existent computer or event, you'll get a helpful compile-time error:
+
+```
+** (CompileError) Event :nonexistent not found in computer :calculator
+Available events: [:update_amount, :reset]
+```
+
+This prevents typos and ensures your templates stay in sync with your computer definitions.
 
 ## Advanced Features
 

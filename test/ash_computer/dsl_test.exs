@@ -162,7 +162,9 @@ defmodule AshComputer.DslTest do
     computer = AshComputer.computer(PatternMatchComputer)
 
     # Test scaling event
-    computer = AshComputer.apply_event(PatternMatchComputer, :pattern_match, :scale, computer, %{factor: 2})
+    computer =
+      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :scale, computer, %{factor: 2})
+
     assert computer.values[:x] == 20
     assert computer.values[:y] == 10
     assert computer.values[:sum] == 30
@@ -173,19 +175,39 @@ defmodule AshComputer.DslTest do
     computer = CoreComputer.handle_input(computer, :y, 50)
     assert computer.values[:sum] == 110
 
-    computer = AshComputer.apply_event(PatternMatchComputer, :pattern_match, :adjust_based_on_sum, computer, nil)
+    computer =
+      AshComputer.apply_event(
+        PatternMatchComputer,
+        :pattern_match,
+        :adjust_based_on_sum,
+        computer,
+        nil
+      )
+
     assert computer.values[:x] == 30.0
     assert computer.values[:y] == 25.0
     assert computer.values[:sum] == 55.0
 
     # Test using vals to compute input changes
-    computer = AshComputer.apply_event(PatternMatchComputer, :pattern_match, :set_from_product, computer, nil)
-    assert computer.values[:x] == 75.0  # product was 750, so 750/10
+    computer =
+      AshComputer.apply_event(
+        PatternMatchComputer,
+        :pattern_match,
+        :set_from_product,
+        computer,
+        nil
+      )
+
+    # product was 750, so 750/10
+    assert computer.values[:x] == 75.0
     assert computer.values[:y] == 10
 
     # Test empty changes
     old_values = computer.values
-    computer = AshComputer.apply_event(PatternMatchComputer, :pattern_match, :no_changes, computer, nil)
+
+    computer =
+      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :no_changes, computer, nil)
+
     assert computer.values == old_values
   end
 
