@@ -290,6 +290,92 @@ defmodule MyAppWeb.CalculatorLive do
 end
 ```
 
+### Initializing Computers with Custom Input Values
+
+To initialize computers with values from mount parameters (e.g., URL params) or session data, pass an initial inputs map to `mount_computers/2`:
+
+```elixir
+defmodule MyAppWeb.ProductLive do
+  use Phoenix.LiveView
+  use AshComputer.LiveView
+
+  computer :cart do
+    input :product_id do
+      initial nil
+    end
+
+    input :quantity do
+      initial 1
+    end
+
+    val :total_price do
+      compute fn %{product_id: id, quantity: qty} ->
+        # Fetch product price and calculate total
+        case get_product_price(id) do
+          nil -> 0
+          price -> price * qty
+        end
+      end
+    end
+  end
+
+  @impl true
+  def mount(%{"product_id" => product_id}, _session, socket) do
+    initial_inputs = %{
+      cart: %{
+        product_id: String.to_integer(product_id),
+        quantity: 1
+      }
+    }
+    {:ok, mount_computers(socket, initial_inputs)}
+  end
+
+  # Handle case where no product_id is provided
+  def mount(_params, _session, socket) do
+    {:ok, mount_computers(socket)}
+  end
+end
+```
+
+The initial inputs map structure is: `%{computer_name => %{input_name => value}}`
+
+#### Multiple Computers with Initial Values
+
+When you have multiple computers, you can initialize them independently:
+
+```elixir
+def mount(%{"user_id" => user_id, "cart_id" => cart_id}, _session, socket) do
+  initial_inputs = %{
+    user_profile: %{
+      user_id: String.to_integer(user_id),
+      preferences: load_user_preferences(user_id)
+    },
+    shopping_cart: %{
+      cart_id: cart_id,
+      items: []
+    }
+  }
+  {:ok, mount_computers(socket, initial_inputs)}
+end
+```
+
+#### Partial Input Overrides
+
+You can override only specific inputs while leaving others at their default values:
+
+```elixir
+def mount(%{"theme" => theme}, session, socket) do
+  initial_inputs = %{
+    settings: %{
+      theme: theme,
+      # quantity keeps its default initial value of 1
+      # Other inputs keep their defaults too
+    }
+  }
+  {:ok, mount_computers(socket, initial_inputs)}
+end
+```
+
 ### Generated Event Handlers
 
 LiveView integration automatically generates `handle_event/3` callbacks for each computer event:

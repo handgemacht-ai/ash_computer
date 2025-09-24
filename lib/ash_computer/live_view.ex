@@ -173,13 +173,38 @@ defmodule AshComputer.LiveView.Helpers do
       def mount(_params, _session, socket) do
         {:ok, mount_computers(socket)}
       end
+
+  To initialize computers with custom input values, pass an initial inputs map:
+
+      def mount(%{"product_id" => product_id}, _session, socket) do
+        initial_inputs = %{
+          cart: %{
+            product_id: String.to_integer(product_id),
+            quantity: 1
+          }
+        }
+        {:ok, mount_computers(socket, initial_inputs)}
+      end
+
+  The initial inputs map has the structure: `%{computer_name => %{input_name => value}}`
   """
-  def mount_computers(socket) do
+  def mount_computers(socket, initial_inputs \\ %{}) do
     module = socket.view
     computers = AshComputer.Info.computer_names(module)
 
     Enum.reduce(computers, socket, fn computer_name, acc ->
       computer = AshComputer.computer(module, computer_name)
+
+      # Apply any initial input overrides for this computer
+      computer =
+        case Map.get(initial_inputs, computer_name) do
+          nil -> computer
+          inputs_map ->
+            Enum.reduce(inputs_map, computer, fn {input_name, value}, comp ->
+              AshComputer.Runtime.handle_input(comp, input_name, value)
+            end)
+        end
+
       sync_computer_to_assigns(acc, computer_name, computer)
     end)
   end

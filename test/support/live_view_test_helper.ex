@@ -18,19 +18,18 @@ defmodule AshComputer.LiveViewTestHelper do
   @doc """
   Helper to mount a LiveView for testing.
   """
-  defmacro live_mount(live_view, session \\ quote(do: %{})) do
-    quote do
-      require Phoenix.LiveViewTest
+  def live_mount(live_view, session \\ %{}) do
+    require Phoenix.LiveViewTest
 
-      conn =
-        Phoenix.ConnTest.build_conn()
-        |> Plug.Test.init_test_session(unquote(session))
+    conn =
+      Phoenix.ConnTest.build_conn()
+      |> Plug.Conn.put_private(:phoenix_endpoint, AshComputer.TestEndpoint)
+      |> Plug.Test.init_test_session(session)
 
-      {:ok, view, _html} =
-        Phoenix.LiveViewTest.live_isolated(conn, unquote(live_view), session: unquote(session))
+    {:ok, view, _html} =
+      Phoenix.LiveViewTest.live_isolated(conn, live_view, session: session)
 
-      view
-    end
+    view
   end
 end
 

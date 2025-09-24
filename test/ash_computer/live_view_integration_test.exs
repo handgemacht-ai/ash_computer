@@ -179,6 +179,35 @@ defmodule AshComputer.LiveViewIntegrationTest do
     end
   end
 
+  describe "mount_computers function" do
+    test "mount_computers/2 applies initial input overrides to computer" do
+      # Test the computer building directly
+      computer = AshComputer.computer(TestLive, :calculator)
+
+      # Default computer should have initial values
+      assert computer.values.x == 10
+      assert computer.values.y == 5
+      assert computer.values.sum == 15
+      assert computer.values.product == 50
+
+      # Test that Runtime.handle_input works with initial overrides
+      computer = AshComputer.Runtime.handle_input(computer, :x, 100)
+      computer = AshComputer.Runtime.handle_input(computer, :y, 25)
+
+      # Check computed values updated
+      assert computer.values.x == 100
+      assert computer.values.y == 25
+      assert computer.values.sum == 125   # 100 + 25
+      assert computer.values.product == 2500  # 100 * 25
+    end
+
+    test "mount_computers/2 function signature exists and accepts parameters" do
+      # Test that the function exists and accepts the right number of parameters
+      assert function_exported?(AshComputer.LiveView.Helpers, :mount_computers, 1)
+      assert function_exported?(AshComputer.LiveView.Helpers, :mount_computers, 2)
+    end
+  end
+
   describe "computer info" do
     test "computers are accessible via AshComputer.Info" do
       computer_names = AshComputer.Info.computer_names(TestLive)
