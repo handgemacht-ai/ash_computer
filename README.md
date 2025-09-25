@@ -109,15 +109,21 @@ defmodule MyApp.TemperatureConverter do
   end
 end
 
-# Use events
-computer = AshComputer.computer(MyApp.TemperatureConverter)
-computer = AshComputer.apply_event(
+# Use events with Executor
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyApp.TemperatureConverter, :converter)
+  |> AshComputer.Executor.initialize()
+
+executor = AshComputer.apply_event(
   MyApp.TemperatureConverter,
   :set_from_fahrenheit,
-  computer,
+  executor,
   %{fahrenheit: 100}
 )
-computer.values[:celsius] # => 37.78
+
+values = AshComputer.Executor.current_values(executor, :converter)
+values[:celsius] # => 37.78
 ```
 
 ## LiveView Integration

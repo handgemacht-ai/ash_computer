@@ -217,14 +217,14 @@ end
 
 ```elixir
 # Apply event without payload (arity 1 handler)
-computer = AshComputer.apply_event(MyModule, :reset, computer)
+executor = AshComputer.apply_event(MyModule, :reset, executor)
 
 # Apply event with payload (arity 2 handler)
 payload = %{preset: :default}
-computer = AshComputer.apply_event(MyModule, :load_preset, computer, payload)
+executor = AshComputer.apply_event(MyModule, :load_preset, executor, payload)
 
 # With explicit computer name
-computer = AshComputer.apply_event(MyModule, :calculator, :reset, computer)
+executor = AshComputer.apply_event(MyModule, :calculator, :reset, executor)
 ```
 
 ## Stateful Computers
@@ -441,9 +441,9 @@ AshComputer.computers(MyModule)  # => [:calculator, :other]
 # Get default computer name
 AshComputer.Info.default_computer_name(MyModule)  # => :calculator
 
-# Build computers
-computer = AshComputer.computer(MyModule)  # Default computer
-computer = AshComputer.computer(MyModule, :specific)
+# Build computer specs (used internally)
+spec = AshComputer.computer_spec(MyModule)  # Default computer spec
+spec = AshComputer.computer_spec(MyModule, :specific)
 
 # List events for a computer
 AshComputer.events(MyModule)  # => [:reset, :load]
@@ -478,12 +478,13 @@ values = AshComputer.Executor.current_values(executor, :computer_name)
 1. **Always provide initial values**: All inputs must have initial values for immediate computation
 2. **Use meaningful names**: Name computers, inputs, vals, and events descriptively
 3. **Prefer pattern matching**: Use pattern matching in compute functions for automatic dependency detection
-4. **Return computers from events**: Event handlers must always return an updated computer struct
+4. **Return input changes from events**: Event handlers must return a map of input changes, not the full executor
 5. **Use events for complex updates**: Encapsulate multi-input updates in named events
 6. **Leverage dependency chains**: Build complex computations through chained vals
 7. **Consider stateful mode carefully**: Only use stateful computers when previous values are needed
 8. **Document with descriptions**: Use description fields for clarity
 9. **Test computation chains**: Verify that updates cascade correctly through dependencies
+10. **Use frames for batching**: Use start_frame/commit_frame to batch multiple input changes efficiently
 
 ## Common Patterns
 
@@ -600,17 +601,24 @@ end
 
 ### Event Handler Return Value
 ```elixir
-# Error: Event must return a computer
+# Error: Event must return a map of input changes
 event :bad do
-  handle fn computer, _payload ->
+  handle fn values, _payload ->
     :ok  # Wrong return type
   end
 end
 
-# Fix: Always return the computer
+# Fix: Always return a map of input changes
 event :good do
-  handle fn computer, _payload ->
-    computer  # Returns the computer struct
+  handle fn values, _payload ->
+    %{x: values[:x] + 1}  # Returns map of input changes
+  end
+end
+
+# Or return empty map for no changes
+event :noop do
+  handle fn _values, _payload ->
+    %{}  # No changes
   end
 end
 ```
@@ -643,11 +651,11 @@ end
 ### Undefined Computer
 ```elixir
 # Error: Unknown computer :missing
-computer = AshComputer.computer(MyModule, :missing)
+executor = AshComputer.Executor.add_computer(executor, MyModule, :missing)
 
 # Fix: Check available computers first
 AshComputer.computers(MyModule)  # => [:calculator]
-computer = AshComputer.computer(MyModule, :calculator)
+executor = AshComputer.Executor.add_computer(executor, MyModule, :calculator)
 ```
 
 ### LiveView Event Naming
