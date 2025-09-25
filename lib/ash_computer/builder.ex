@@ -4,50 +4,44 @@ defmodule AshComputer.Builder do
   alias AshComputer.Dsl.Computer, as: ComputerDefinition
   alias AshComputer.Dsl.Input
   alias AshComputer.Dsl.Val
-  alias AshComputer.Runtime
 
   def build_builder(%ComputerDefinition{} = definition, module) do
     fn ->
-      build_computer(definition, module)
+      build_computer_spec(definition, module)
     end
   end
 
-  defp build_computer(%ComputerDefinition{} = definition, module) do
-    display_name = definition.description || default_display_name(definition.name)
+  defp build_computer_spec(%ComputerDefinition{} = definition, module) do
+    inputs = build_inputs(definition.inputs)
+    {vals, dependencies} = build_vals(definition.vals, module)
 
-    Runtime.new(display_name)
-    |> add_inputs(definition.inputs)
-    |> add_vals(definition.vals, module)
+    %{
+      inputs: inputs,
+      vals: vals,
+      dependencies: dependencies
+    }
   end
 
-  defp add_inputs(computer, inputs) do
-    Enum.reduce(inputs, computer, fn %Input{} = input, acc ->
-      Runtime.add_input(
-        acc,
-        input.name,
-        input.initial,
-        input.description,
-        Map.get(input, :options, [])
-      )
-    end)
+  defp build_inputs(inputs) do
+    for %Input{} = input <- inputs, into: %{} do
+      {input.name, input.initial}
+    end
   end
 
-  defp add_vals(computer, vals, module) do
-    Enum.reduce(vals, computer, fn %Val{} = val, acc ->
-      # Dependencies are parsed at compile time by the transformer
-      dependencies = get_dependencies(val)
+  defp build_vals(vals, module) do
+    vals_map =
+      for %Val{} = val <- vals, into: %{} do
+        compute_fun = compile_compute_function(val.compute, module)
+        {val.name, compute_fun}
+      end
 
-      # Create function reference (val.compute is now a function name)
-      compute_fun = compile_compute_function(val.compute, module)
+    dependencies_map =
+      for %Val{} = val <- vals, into: %{} do
+        dependencies = get_dependencies(val)
+        {val.name, dependencies}
+      end
 
-      Runtime.add_val(
-        acc,
-        val.name,
-        val.description,
-        compute_fun,
-        dependencies
-      )
-    end)
+    {vals_map, dependencies_map}
   end
 
   defp get_dependencies(%Val{depends_on: depends_on}) do

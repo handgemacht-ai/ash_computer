@@ -1,12 +1,8 @@
 defmodule AshComputer.DslTest do
   use ExUnit.Case, async: false
 
-  alias AshComputer.Runtime, as: CoreComputer
-
   defmodule PaceComputer do
     use AshComputer
-
-    alias AshComputer.Runtime, as: CoreComputer
 
     computer :pace do
       input :time do
@@ -38,36 +34,51 @@ defmodule AshComputer.DslTest do
   end
 
   test "builds and evaluates a computer" do
-    computer = AshComputer.computer(PaceComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(PaceComputer, :pace)
+      |> AshComputer.Executor.initialize()
 
-    assert computer.name == "Pace"
-    assert computer.values[:pace] == 3.0
+    values = AshComputer.Executor.current_values(executor, :pace)
+    assert values[:pace] == 3.0
 
-    computer = CoreComputer.handle_input(computer, :time, 40)
+    executor =
+      executor
+      |> AshComputer.Executor.start_frame()
+      |> AshComputer.Executor.set_input(:pace, :time, 40)
+      |> AshComputer.Executor.commit_frame()
 
-    assert computer.values[:pace] == 4.0
+    values = AshComputer.Executor.current_values(executor, :pace)
+    assert values[:pace] == 4.0
   end
 
   test "runs events" do
-    computer = AshComputer.computer(PaceComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(PaceComputer, :pace)
+      |> AshComputer.Executor.initialize()
 
     assert [:reset, :load] == AshComputer.events(PaceComputer, :pace)
 
-    computer =
-      computer
-      |> CoreComputer.handle_input(:time, 100)
-      |> CoreComputer.handle_input(:distance, 50)
+    executor =
+      executor
+      |> AshComputer.Executor.start_frame()
+      |> AshComputer.Executor.set_input(:pace, :time, 100)
+      |> AshComputer.Executor.set_input(:pace, :distance, 50)
+      |> AshComputer.Executor.commit_frame()
 
-    computer = AshComputer.apply_event(PaceComputer, :reset, computer)
-    assert computer.values[:time] == 30
-    assert computer.values[:distance] == 10
-    assert computer.values[:pace] == 3.0
+    executor = AshComputer.apply_event(PaceComputer, :reset, executor)
+    values = AshComputer.Executor.current_values(executor, :pace)
+    assert values[:time] == 30
+    assert values[:distance] == 10
+    assert values[:pace] == 3.0
 
     payload = %{time: 45, distance: 9}
-    computer = AshComputer.apply_event(PaceComputer, :pace, :load, computer, payload)
-    assert computer.values[:time] == 45
-    assert computer.values[:distance] == 9
-    assert computer.values[:pace] == 5.0
+    executor = AshComputer.apply_event(PaceComputer, :pace, :load, executor, payload)
+    values = AshComputer.Executor.current_values(executor, :pace)
+    assert values[:time] == 45
+    assert values[:distance] == 9
+    assert values[:pace] == 5.0
   end
 
   defmodule ChainedComputer do
@@ -114,19 +125,26 @@ defmodule AshComputer.DslTest do
   end
 
   test "vals can depend on other vals" do
-    computer = AshComputer.computer(ChainedComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(ChainedComputer, :chained)
+      |> AshComputer.Executor.initialize()
 
-    # Initial values should be computed correctly through the chain
-    assert computer.values[:base_value] == 10
-    assert computer.values[:doubled] == 20
-    assert computer.values[:quadrupled] == 40
+    values = AshComputer.Executor.current_values(executor, :chained)
+    assert values[:base_value] == 10
+    assert values[:doubled] == 20
+    assert values[:quadrupled] == 40
 
-    # Update the input and verify the chain updates
-    computer = CoreComputer.handle_input(computer, :base_value, 5)
+    executor =
+      executor
+      |> AshComputer.Executor.start_frame()
+      |> AshComputer.Executor.set_input(:chained, :base_value, 5)
+      |> AshComputer.Executor.commit_frame()
 
-    assert computer.values[:base_value] == 5
-    assert computer.values[:doubled] == 10
-    assert computer.values[:quadrupled] == 20
+    values = AshComputer.Executor.current_values(executor, :chained)
+    assert values[:base_value] == 5
+    assert values[:doubled] == 10
+    assert values[:quadrupled] == 20
   end
 
   defmodule PatternMatchComputer do
@@ -181,63 +199,76 @@ defmodule AshComputer.DslTest do
   end
 
   test "event handlers can pattern match on inputs and vals" do
-    computer = AshComputer.computer(PatternMatchComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(PatternMatchComputer, :pattern_match)
+      |> AshComputer.Executor.initialize()
 
-    # Test scaling event
-    computer =
-      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :scale, computer, %{factor: 2})
+    executor =
+      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :scale, executor, %{
+        factor: 2
+      })
 
-    assert computer.values[:x] == 20
-    assert computer.values[:y] == 10
-    assert computer.values[:sum] == 30
-    assert computer.values[:product] == 200
+    values = AshComputer.Executor.current_values(executor, :pattern_match)
+    assert values[:x] == 20
+    assert values[:y] == 10
+    assert values[:sum] == 30
+    assert values[:product] == 200
 
-    # Test conditional logic based on computed vals
-    computer = CoreComputer.handle_input(computer, :x, 60)
-    computer = CoreComputer.handle_input(computer, :y, 50)
-    assert computer.values[:sum] == 110
+    executor =
+      executor
+      |> AshComputer.Executor.start_frame()
+      |> AshComputer.Executor.set_input(:pattern_match, :x, 60)
+      |> AshComputer.Executor.set_input(:pattern_match, :y, 50)
+      |> AshComputer.Executor.commit_frame()
 
-    computer =
+    values = AshComputer.Executor.current_values(executor, :pattern_match)
+    assert values[:sum] == 110
+
+    executor =
       AshComputer.apply_event(
         PatternMatchComputer,
         :pattern_match,
         :adjust_based_on_sum,
-        computer,
+        executor,
         nil
       )
 
-    assert computer.values[:x] == 30.0
-    assert computer.values[:y] == 25.0
-    assert computer.values[:sum] == 55.0
+    values = AshComputer.Executor.current_values(executor, :pattern_match)
+    assert values[:x] == 30.0
+    assert values[:y] == 25.0
+    assert values[:sum] == 55.0
 
-    # Test using vals to compute input changes
-    computer =
+    executor =
       AshComputer.apply_event(
         PatternMatchComputer,
         :pattern_match,
         :set_from_product,
-        computer,
+        executor,
         nil
       )
 
-    # product was 750, so 750/10
-    assert computer.values[:x] == 75.0
-    assert computer.values[:y] == 10
+    values = AshComputer.Executor.current_values(executor, :pattern_match)
+    assert values[:x] == 75.0
+    assert values[:y] == 10
 
-    # Test empty changes
-    old_values = computer.values
+    old_values = values
 
-    computer =
-      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :no_changes, computer, nil)
+    executor =
+      AshComputer.apply_event(PatternMatchComputer, :pattern_match, :no_changes, executor, nil)
 
-    assert computer.values == old_values
+    values = AshComputer.Executor.current_values(executor, :pattern_match)
+    assert values == old_values
   end
 
   test "aliased modules work in compute functions" do
-    computer = AshComputer.computer(AliasedComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(AliasedComputer, :aliased)
+      |> AshComputer.Executor.initialize()
 
-    # The compute function uses the aliased module MyEnum, which should resolve to Enum
-    assert computer.values[:sum] == 6
+    values = AshComputer.Executor.current_values(executor, :aliased)
+    assert values[:sum] == 6
   end
 
   defmodule ValidationComputer do
@@ -269,18 +300,24 @@ defmodule AshComputer.DslTest do
   end
 
   test "event handlers cannot modify vals" do
-    computer = AshComputer.computer(ValidationComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(ValidationComputer, :validation)
+      |> AshComputer.Executor.initialize()
 
     assert_raise ArgumentError, ~r/tried to modify non-input values.*computed_value/, fn ->
-      AshComputer.apply_event(ValidationComputer, :validation, :try_modify_val, computer, nil)
+      AshComputer.apply_event(ValidationComputer, :validation, :try_modify_val, executor, nil)
     end
   end
 
   test "event handlers must return a map" do
-    computer = AshComputer.computer(ValidationComputer)
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(ValidationComputer, :validation)
+      |> AshComputer.Executor.initialize()
 
     assert_raise ArgumentError, ~r/must return a map of input changes/, fn ->
-      AshComputer.apply_event(ValidationComputer, :validation, :return_non_map, computer, nil)
+      AshComputer.apply_event(ValidationComputer, :validation, :return_non_map, executor, nil)
     end
   end
 end

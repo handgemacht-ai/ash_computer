@@ -111,32 +111,41 @@ end
 
 ## Working with Computers
 
-### Building and Evaluating
+### Building and Using an Executor
 
 ```elixir
-# Build a computer (evaluates all vals)
-computer = AshComputer.computer(MyModule)  # Uses default computer
-computer = AshComputer.computer(MyModule, :calculator)  # Named computer
+# Create an executor and add a computer
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyModule, :calculator)
+  |> AshComputer.Executor.initialize()
 
 # Access computed values
-computer.values[:sum]  # => computed sum
-computer.values[:x]    # => input value
+values = AshComputer.Executor.current_values(executor, :calculator)
+values[:sum]  # => computed sum
+values[:x]    # => input value
 ```
 
 ### Updating Inputs
 
-Use `AshComputer.Runtime.handle_input/3` to update inputs and trigger recomputation:
+Use frame-based execution to batch input changes:
 
 ```elixir
-# Update an input value
-computer = AshComputer.Runtime.handle_input(computer, :x, 42)
+# Update input values in a frame
+executor =
+  executor
+  |> AshComputer.Executor.start_frame()
+  |> AshComputer.Executor.set_input(:calculator, :x, 42)
+  |> AshComputer.Executor.commit_frame()
 
 # All dependent vals are automatically recomputed
-computer.values[:sum]     # => new sum with x=42
-computer.values[:product]  # => new product with x=42
+values = AshComputer.Executor.current_values(executor, :calculator)
+values[:sum]     # => new sum with x=42
+values[:product]  # => new product with x=42
 ```
 
-**Cascade updates**: When an input changes, all dependent vals are recomputed in dependency order automatically.
+**Cascade updates**: When inputs change, all dependent vals are recomputed in dependency order automatically.
+**Batched execution**: Multiple input changes in a frame are processed efficiently in a single pass.
 
 ## Events
 
@@ -277,8 +286,8 @@ defmodule MyAppWeb.CalculatorLive do
     end
 
     event :set_x do
-      handle fn computer, %{value: value} ->
-        AshComputer.Runtime.handle_input(computer, :x, value)
+      handle fn _values, %{value: value} ->
+        %{x: value}
       end
     end
   end
@@ -441,14 +450,27 @@ AshComputer.events(MyModule)  # => [:reset, :load]
 AshComputer.events(MyModule, :calculator)  # => [:reset, :load]
 ```
 
-### Runtime Functions
+### Executor Functions
 
 ```elixir
-# Update inputs
-computer = AshComputer.Runtime.handle_input(computer, :input_name, value)
+# Create an executor
+executor = AshComputer.Executor.new()
 
-# Create GenServer instance
-{:ok, pid} = AshComputer.Runtime.make_instance(computer, options)
+# Add computers
+executor = AshComputer.Executor.add_computer(executor, MyModule, :computer_name)
+
+# Initialize (compute all initial values)
+executor = AshComputer.Executor.initialize(executor)
+
+# Update inputs with frames
+executor =
+  executor
+  |> AshComputer.Executor.start_frame()
+  |> AshComputer.Executor.set_input(:computer_name, :input_name, value)
+  |> AshComputer.Executor.commit_frame()
+
+# Get current values
+values = AshComputer.Executor.current_values(executor, :computer_name)
 ```
 
 ## Best Practices
@@ -516,9 +538,9 @@ computer :form do
   end
 
   event :update_field do
-    handle fn computer, %{"field" => field, "value" => value} ->
+    handle fn _values, %{"field" => field, "value" => value} ->
       field_atom = String.to_existing_atom(field)
-      AshComputer.Runtime.handle_input(computer, field_atom, value)
+      %{field_atom => value}
     end
   end
 end
@@ -539,18 +561,14 @@ computer :config do
   end
 
   event :load_preset do
-    handle fn computer, %{name: name} ->
+    handle fn _values, %{name: name} ->
       presets = %{
         low: %{setting_a: 10, setting_b: 20},
         medium: %{setting_a: 50, setting_b: 50},
         high: %{setting_a: 90, setting_b: 100}
       }
 
-      settings = Map.get(presets, name, presets.low)
-
-      Enum.reduce(settings, computer, fn {key, value}, acc ->
-        AshComputer.Runtime.handle_input(acc, key, value)
-      end)
+      Map.get(presets, name, presets.low)
     end
   end
 end

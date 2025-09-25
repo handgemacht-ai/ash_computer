@@ -82,22 +82,21 @@ defmodule AshComputer.LiveView do
     quote do
       @impl true
       def handle_event(unquote(event_string), params, socket) do
-        # Get or build the current computer from assigns
-        computer = get_computer_from_assigns(socket, unquote(computer_name), unquote(module))
+        executor = get_executor_from_assigns(socket)
 
-        # Apply the event
-        updated_computer =
+        updated_executor =
           AshComputer.apply_event(
             unquote(module),
             unquote(computer_name),
             unquote(event_name),
-            computer,
+            executor,
             params
           )
 
-        # Sync updated values back to assigns
         updated_socket =
-          sync_computer_to_assigns(socket, unquote(computer_name), updated_computer)
+          socket
+          |> Phoenix.Component.assign(:__executor__, updated_executor)
+          |> sync_executor_to_assigns()
 
         {:noreply, updated_socket}
       end
@@ -190,83 +189,64 @@ defmodule AshComputer.LiveView.Helpers do
   """
   def mount_computers(socket, initial_inputs \\ %{}) do
     module = socket.view
-    computers = AshComputer.Info.computer_names(module)
+    computer_names = AshComputer.Info.computer_names(module)
 
-    Enum.reduce(computers, socket, fn computer_name, acc ->
-      computer = AshComputer.computer(module, computer_name)
+    executor =
+      Enum.reduce(computer_names, AshComputer.Executor.new(), fn computer_name, acc ->
+        AshComputer.Executor.add_computer(acc, module, computer_name)
+      end)
+      |> AshComputer.Executor.initialize()
 
-      # Apply any initial input overrides for this computer
-      computer =
-        case Map.get(initial_inputs, computer_name) do
-          nil -> computer
-          inputs_map ->
-            Enum.reduce(inputs_map, computer, fn {input_name, value}, comp ->
-              AshComputer.Runtime.handle_input(comp, input_name, value)
-            end)
-        end
+    executor =
+      if map_size(initial_inputs) > 0 do
+        executor
+        |> AshComputer.Executor.start_frame()
+        |> apply_initial_inputs(initial_inputs)
+        |> AshComputer.Executor.commit_frame()
+      else
+        executor
+      end
 
-      sync_computer_to_assigns(acc, computer_name, computer)
+    socket
+    |> Phoenix.Component.assign(:__executor__, executor)
+    |> sync_executor_to_assigns()
+  end
+
+  defp apply_initial_inputs(executor, initial_inputs) do
+    Enum.reduce(initial_inputs, executor, fn {computer_name, inputs_map}, acc ->
+      Enum.reduce(inputs_map, acc, fn {input_name, value}, exec ->
+        AshComputer.Executor.set_input(exec, computer_name, input_name, value)
+      end)
     end)
   end
 
   @doc """
-  Syncs a computer's values to socket assigns using flat naming.
+  Syncs all computers in the executor to socket assigns using flat naming.
 
   All values are assigned as `computer_name_value_name`.
   """
-  def sync_computer_to_assigns(socket, computer_name, computer) do
-    assigns =
-      computer.values
-      |> Enum.map(fn {key, value} ->
-        # Convert atom key to string for concatenation, then back to atom
-        key_str = if is_atom(key), do: Atom.to_string(key), else: key
-        assign_name = String.to_atom("#{computer_name}_#{key_str}")
-        {assign_name, value}
-      end)
+  def sync_executor_to_assigns(socket) do
+    executor = socket.assigns[:__executor__]
 
-    Phoenix.Component.assign(socket, assigns)
+    if executor do
+      assigns =
+        for {computer_name, _computer} <- executor.computers,
+            {{^computer_name, key}, value} <- executor.values do
+          key_str = if is_atom(key), do: Atom.to_string(key), else: key
+          assign_name = String.to_atom("#{computer_name}_#{key_str}")
+          {assign_name, value}
+        end
+
+      Phoenix.Component.assign(socket, assigns)
+    else
+      socket
+    end
   end
 
   @doc """
-  Gets the current computer from socket assigns or builds a new one.
-
-  Reconstructs the computer from the flat assigns structure.
+  Gets the current executor from socket assigns.
   """
-  def get_computer_from_assigns(socket, computer_name, module) do
-    # Build a fresh computer
-    computer = AshComputer.computer(module, computer_name)
-
-    # Update it with current assign values
-    computer_name_str = Atom.to_string(computer_name)
-
-    # Find all assigns that belong to this computer
-    current_values =
-      socket.assigns
-      |> Enum.filter(fn {key, _value} ->
-        key_str = Atom.to_string(key)
-        String.starts_with?(key_str, "#{computer_name_str}_")
-      end)
-      |> Enum.reduce(%{}, fn {key, value}, acc ->
-        key_str = Atom.to_string(key)
-        value_name_str = String.replace_prefix(key_str, "#{computer_name_str}_", "")
-        value_name = String.to_atom(value_name_str)
-
-        # Only update inputs, not computed vals
-        if Map.has_key?(computer.values, value_name) do
-          Map.put(acc, value_name, value)
-        else
-          acc
-        end
-      end)
-
-    # Apply input updates to the computer
-    Enum.reduce(current_values, computer, fn {input_name, value}, acc ->
-      # Check if this is an input (not a val)
-      if Map.has_key?(acc.inputs, input_name) do
-        AshComputer.Runtime.handle_input(acc, input_name, value)
-      else
-        acc
-      end
-    end)
+  def get_executor_from_assigns(socket) do
+    socket.assigns[:__executor__]
   end
 end

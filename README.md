@@ -56,15 +56,26 @@ defmodule MyApp.Calculator do
   end
 end
 
-# Use the calculator
-computer = AshComputer.computer(MyApp.Calculator)
-computer.values[:sum]     # => 15
-computer.values[:product] # => 50
+# Use the calculator with Executor
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyApp.Calculator, :calculator)
+  |> AshComputer.Executor.initialize()
+
+values = AshComputer.Executor.current_values(executor, :calculator)
+values[:sum]     # => 15
+values[:product] # => 50
 
 # Update inputs
-computer = AshComputer.Runtime.handle_input(computer, :x, 20)
-computer.values[:sum]     # => 25
-computer.values[:product] # => 100
+executor =
+  executor
+  |> AshComputer.Executor.start_frame()
+  |> AshComputer.Executor.set_input(:calculator, :x, 20)
+  |> AshComputer.Executor.commit_frame()
+
+values = AshComputer.Executor.current_values(executor, :calculator)
+values[:sum]     # => 25
+values[:product] # => 100
 ```
 
 ### With Events

@@ -68,23 +68,28 @@ defmodule AshComputer.LiveViewIntegrationTest do
 
   describe "helper functions" do
     test "computer builds correctly" do
-      # Build a computer directly
-      computer = AshComputer.computer(TestLive, :calculator)
+      executor =
+        AshComputer.Executor.new()
+        |> AshComputer.Executor.add_computer(TestLive, :calculator)
+        |> AshComputer.Executor.initialize()
 
-      # Check initial values
-      assert computer.values[:x] == 10
-      assert computer.values[:y] == 5
-      assert computer.values[:sum] == 15
-      assert computer.values[:product] == 50
+      values = AshComputer.Executor.current_values(executor, :calculator)
+      assert values[:x] == 10
+      assert values[:y] == 5
+      assert values[:sum] == 15
+      assert values[:product] == 50
 
-      # Update a value
-      computer = AshComputer.Runtime.handle_input(computer, :x, 20)
+      executor =
+        executor
+        |> AshComputer.Executor.start_frame()
+        |> AshComputer.Executor.set_input(:calculator, :x, 20)
+        |> AshComputer.Executor.commit_frame()
 
-      # Check computed values update
-      assert computer.values[:x] == 20
-      assert computer.values[:y] == 5
-      assert computer.values[:sum] == 25
-      assert computer.values[:product] == 100
+      values = AshComputer.Executor.current_values(executor, :calculator)
+      assert values[:x] == 20
+      assert values[:y] == 5
+      assert values[:sum] == 25
+      assert values[:product] == 100
     end
   end
 
@@ -181,24 +186,29 @@ defmodule AshComputer.LiveViewIntegrationTest do
 
   describe "mount_computers function" do
     test "mount_computers/2 applies initial input overrides to computer" do
-      # Test the computer building directly
-      computer = AshComputer.computer(TestLive, :calculator)
+      executor =
+        AshComputer.Executor.new()
+        |> AshComputer.Executor.add_computer(TestLive, :calculator)
+        |> AshComputer.Executor.initialize()
 
-      # Default computer should have initial values
-      assert computer.values.x == 10
-      assert computer.values.y == 5
-      assert computer.values.sum == 15
-      assert computer.values.product == 50
+      values = AshComputer.Executor.current_values(executor, :calculator)
+      assert values.x == 10
+      assert values.y == 5
+      assert values.sum == 15
+      assert values.product == 50
 
-      # Test that Runtime.handle_input works with initial overrides
-      computer = AshComputer.Runtime.handle_input(computer, :x, 100)
-      computer = AshComputer.Runtime.handle_input(computer, :y, 25)
+      executor =
+        executor
+        |> AshComputer.Executor.start_frame()
+        |> AshComputer.Executor.set_input(:calculator, :x, 100)
+        |> AshComputer.Executor.set_input(:calculator, :y, 25)
+        |> AshComputer.Executor.commit_frame()
 
-      # Check computed values updated
-      assert computer.values.x == 100
-      assert computer.values.y == 25
-      assert computer.values.sum == 125   # 100 + 25
-      assert computer.values.product == 2500  # 100 * 25
+      values = AshComputer.Executor.current_values(executor, :calculator)
+      assert values.x == 100
+      assert values.y == 25
+      assert values.sum == 125
+      assert values.product == 2500
     end
 
     test "mount_computers/2 function signature exists and accepts parameters" do

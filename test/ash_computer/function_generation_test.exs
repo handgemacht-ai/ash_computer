@@ -91,14 +91,24 @@ defmodule AshComputer.FunctionGenerationTest do
     end
 
     test "computer works with generated functions" do
-      computer = AshComputer.computer(SimpleComputer)
-      assert computer.values[:doubled] == 20
+      executor =
+        AshComputer.Executor.new()
+        |> AshComputer.Executor.add_computer(SimpleComputer, :simple)
+        |> AshComputer.Executor.initialize()
+
+      values = AshComputer.Executor.current_values(executor, :simple)
+      assert values[:doubled] == 20
     end
 
     test "computer works with aliased modules" do
-      computer = AshComputer.computer(AliasComputer)
-      assert computer.values[:sum] == 6
-      assert computer.values[:joined] == "HELLO WORLD"
+      executor =
+        AshComputer.Executor.new()
+        |> AshComputer.Executor.add_computer(AliasComputer, :alias_test)
+        |> AshComputer.Executor.initialize()
+
+      values = AshComputer.Executor.current_values(executor, :alias_test)
+      assert values[:sum] == 6
+      assert values[:joined] == "HELLO WORLD"
     end
 
     defmodule RealWorldComputer do
@@ -146,15 +156,24 @@ defmodule AshComputer.FunctionGenerationTest do
       assert function_exported?(RealWorldComputer, :__compute_users_table_mock_query__, 1),
              "Expected function __compute_users_table_mock_query__/1 to be generated"
 
-      computer = AshComputer.computer(RealWorldComputer)
+      executor =
+        AshComputer.Executor.new()
+        |> AshComputer.Executor.add_computer(RealWorldComputer, :users_table)
+        |> AshComputer.Executor.initialize()
 
-      assert computer.values[:offset] == 0
-      assert %{module: RealWorldComputer.User, offset: 0, limit: 10} = computer.values[:mock_query]
+      values = AshComputer.Executor.current_values(executor, :users_table)
+      assert values[:offset] == 0
+      assert %{module: RealWorldComputer.User, offset: 0, limit: 10} = values[:mock_query]
 
-      # Test with different page
-      computer = AshComputer.Runtime.handle_input(computer, :page, 3)
-      assert computer.values[:offset] == 20
-      assert %{offset: 20} = computer.values[:mock_query]
+      executor =
+        executor
+        |> AshComputer.Executor.start_frame()
+        |> AshComputer.Executor.set_input(:users_table, :page, 3)
+        |> AshComputer.Executor.commit_frame()
+
+      values = AshComputer.Executor.current_values(executor, :users_table)
+      assert values[:offset] == 20
+      assert %{offset: 20} = values[:mock_query]
     end
 
     test "inspect generated function source (if available)" do
