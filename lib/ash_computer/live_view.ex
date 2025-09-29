@@ -82,7 +82,7 @@ defmodule AshComputer.LiveView do
     quote do
       @impl true
       def handle_event(unquote(event_string), params, socket) do
-        executor = get_executor_from_assigns(socket)
+        executor = AshComputer.LiveView.Helpers.get_executor_from_assigns(socket)
 
         updated_executor =
           AshComputer.apply_event(
@@ -96,7 +96,7 @@ defmodule AshComputer.LiveView do
         updated_socket =
           socket
           |> Phoenix.Component.assign(:__executor__, updated_executor)
-          |> sync_executor_to_assigns()
+          |> AshComputer.LiveView.Helpers.sync_executor_to_assigns()
 
         {:noreply, updated_socket}
       end
@@ -248,5 +248,84 @@ defmodule AshComputer.LiveView.Helpers do
   """
   def get_executor_from_assigns(socket) do
     socket.assigns[:__executor__]
+  end
+
+  @doc """
+  Updates multiple inputs for a single computer and syncs the result back to the socket.
+
+  This helper allows you to manually trigger computer recomputation from
+  custom event handlers by updating input values.
+
+  ## Examples
+
+      def handle_event("custom_action", _params, socket) do
+        # Your custom logic here
+        ...
+
+        # Update multiple inputs for a computer
+        updated_socket = update_computer_inputs(socket, :sidebar, %{
+          refresh_trigger: System.monotonic_time(),
+          filter: "active"
+        })
+
+        {:noreply, updated_socket}
+      end
+
+  ## Parameters
+
+    - `socket` - The LiveView socket
+    - `computer_name` - The name of the computer (atom)
+    - `inputs` - Map of input names to values: `%{input_name => value}`
+
+  ## Returns
+
+  The updated socket with the new executor state synced to assigns.
+  """
+  def update_computer_inputs(socket, computer_name, inputs) when is_map(inputs) do
+    update_computers(socket, %{computer_name => inputs})
+  end
+
+  @doc """
+  Updates inputs across multiple computers and syncs the result back to the socket.
+
+  This is the most general form that allows updating any number of inputs
+  across any number of computers in a single operation.
+
+  ## Examples
+
+      def handle_event("refresh_all", _params, socket) do
+        updated_socket = update_computers(socket, %{
+          sidebar: %{refresh_trigger: System.monotonic_time()},
+          main_content: %{page: 1, filter: "all"}
+        })
+
+        {:noreply, updated_socket}
+      end
+
+  ## Parameters
+
+    - `socket` - The LiveView socket
+    - `updates` - Nested map: `%{computer_name => %{input_name => value}}`
+
+  ## Returns
+
+  The updated socket with the new executor state synced to assigns.
+  """
+  def update_computers(socket, updates) when is_map(updates) do
+    executor = get_executor_from_assigns(socket)
+
+    unless executor do
+      raise ArgumentError, "No executor found in socket assigns. Did you call mount_computers/1?"
+    end
+
+    updated_executor =
+      executor
+      |> AshComputer.Executor.start_frame()
+      |> apply_initial_inputs(updates)
+      |> AshComputer.Executor.commit_frame()
+
+    socket
+    |> Phoenix.Component.assign(:__executor__, updated_executor)
+    |> sync_executor_to_assigns()
   end
 end

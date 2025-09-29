@@ -217,6 +217,66 @@ Available events: [:update_amount, :reset]
 
 This prevents typos and ensures your templates stay in sync with your computer definitions.
 
+### Custom Event Handlers and Manual Updates
+
+While AshComputer automatically generates event handlers, you can also create custom handlers that update computer inputs manually:
+
+```elixir
+defmodule MyAppWeb.DashboardLive do
+  use Phoenix.LiveView
+  use AshComputer.LiveView
+
+  computer :sidebar do
+    input :refresh_trigger do
+      initial 0
+    end
+
+    input :filter do
+      initial "all"
+    end
+
+    val :items do
+      compute fn %{refresh_trigger: _trigger, filter: filter} ->
+        # Fetch items from database based on filter
+        fetch_items(filter)
+      end
+    end
+  end
+
+  @impl true
+  def mount(_params, _session, socket) do
+    {:ok, mount_computers(socket)}
+  end
+
+  # Custom handler that updates a single computer
+  @impl true
+  def handle_event("create_item", params, socket) do
+    # Your business logic
+    {:ok, _item} = create_item(params)
+
+    # Trigger sidebar refresh by updating inputs
+    updated_socket = update_computer_inputs(socket, :sidebar, %{
+      refresh_trigger: System.monotonic_time()
+    })
+
+    {:noreply, updated_socket}
+  end
+
+  # Update multiple computers at once
+  @impl true
+  def handle_event("reset_all", _params, socket) do
+    updated_socket = update_computers(socket, %{
+      sidebar: %{filter: "all", refresh_trigger: 0},
+      main_content: %{page: 1}
+    })
+
+    {:noreply, updated_socket}
+  end
+end
+```
+
+The `update_computer_inputs/3` and `update_computers/2` helper functions allow you to manually trigger recomputations from any custom event handler, making it easy to integrate AshComputer with existing business logic.
+
 ## Advanced Features
 
 ### Chained Computations

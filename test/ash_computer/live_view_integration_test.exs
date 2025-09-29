@@ -218,6 +218,117 @@ defmodule AshComputer.LiveViewIntegrationTest do
     end
   end
 
+  describe "update_computer_inputs and update_computers helpers" do
+    defmodule TestLiveWithCustomHandlers do
+      use Phoenix.LiveView
+      use AshComputer.LiveView
+
+      computer :sidebar do
+        input :refresh_trigger do
+          initial 0
+        end
+
+        input :filter do
+          initial "all"
+        end
+
+        val :display_count do
+          compute fn %{refresh_trigger: trigger, filter: filter} ->
+            # Just for testing - normally this would fetch data
+            "#{filter}-#{trigger}"
+          end
+        end
+      end
+
+      computer :main_content do
+        input :page do
+          initial 1
+        end
+
+        val :content do
+          compute fn %{page: page} -> "Page #{page}" end
+        end
+      end
+
+      @impl true
+      def mount(_params, _session, socket) do
+        {:ok, mount_computers(socket)}
+      end
+
+      # Custom handler that updates a single computer's inputs
+      @impl true
+      def handle_event("custom_refresh", _params, socket) do
+        updated_socket = update_computer_inputs(socket, :sidebar, %{
+          refresh_trigger: System.monotonic_time(),
+          filter: "active"
+        })
+        {:noreply, updated_socket}
+      end
+
+      # Custom handler that updates multiple computers
+      @impl true
+      def handle_event("refresh_all", _params, socket) do
+        updated_socket = update_computers(socket, %{
+          sidebar: %{refresh_trigger: 999, filter: "all"},
+          main_content: %{page: 2}
+        })
+        {:noreply, updated_socket}
+      end
+
+      @impl true
+      def render(assigns) do
+        ~H"""
+        <div>
+          <span data-testid="display-count"><%= @sidebar_display_count %></span>
+          <span data-testid="filter"><%= @sidebar_filter %></span>
+          <span data-testid="content"><%= @main_content_content %></span>
+          <button phx-click="custom_refresh">Custom Refresh</button>
+          <button phx-click="refresh_all">Refresh All</button>
+        </div>
+        """
+      end
+    end
+
+    test "update_computer_inputs updates a single computer's inputs" do
+      view = live_mount(TestLiveWithCustomHandlers)
+
+      # Check initial state
+      assert has_element?(view, "[data-testid='display-count']", "all-0")
+      assert has_element?(view, "[data-testid='filter']", "all")
+      assert has_element?(view, "[data-testid='content']", "Page 1")
+
+      # Trigger custom refresh
+      view |> element("button", "Custom Refresh") |> render_click()
+
+      # Filter should be updated to "active"
+      assert has_element?(view, "[data-testid='filter']", "active")
+      # Display count should have changed (contains "active" and a non-zero trigger)
+      html = render(view)
+      refute html =~ "all-0"
+      assert html =~ "active-"
+    end
+
+    test "update_computers updates multiple computers at once" do
+      view = live_mount(TestLiveWithCustomHandlers)
+
+      # Check initial state
+      assert has_element?(view, "[data-testid='display-count']", "all-0")
+      assert has_element?(view, "[data-testid='content']", "Page 1")
+
+      # Trigger refresh all
+      view |> element("button", "Refresh All") |> render_click()
+
+      # Both computers should be updated
+      assert has_element?(view, "[data-testid='display-count']", "all-999")
+      assert has_element?(view, "[data-testid='content']", "Page 2")
+    end
+
+    test "update functions are accessible" do
+      assert function_exported?(AshComputer.LiveView.Helpers, :update_computer_inputs, 3)
+      assert function_exported?(AshComputer.LiveView.Helpers, :update_computers, 2)
+    end
+  end
+
   describe "computer info" do
     test "computers are accessible via AshComputer.Info" do
       computer_names = AshComputer.Info.computer_names(TestLive)

@@ -396,6 +396,89 @@ LiveView integration automatically generates `handle_event/3` callbacks for each
 
 **Event naming pattern**: `{computer_name}_{event_name}`
 
+### Manual Computer Updates from Custom Handlers
+
+While AshComputer generates event handlers automatically, you can also update computer inputs manually from any custom event handler using the helper functions:
+
+#### Update a Single Computer's Inputs
+
+Use `update_computer_inputs/3` to update multiple inputs for a single computer:
+
+```elixir
+defmodule MyAppWeb.DashboardLive do
+  use Phoenix.LiveView
+  use AshComputer.LiveView
+
+  computer :sidebar do
+    input :refresh_trigger do
+      initial 0
+    end
+
+    input :filter do
+      initial "all"
+    end
+
+    val :items_count do
+      compute fn %{refresh_trigger: _trigger, filter: filter} ->
+        # Recomputes whenever refresh_trigger or filter changes
+        fetch_item_count(filter)
+      end
+    end
+  end
+
+  # Custom handler that triggers recomputation
+  @impl true
+  def handle_event("item_created", params, socket) do
+    # Your business logic
+    {:ok, _item} = create_item(params)
+
+    # Trigger sidebar refresh by updating inputs
+    updated_socket = update_computer_inputs(socket, :sidebar, %{
+      refresh_trigger: System.monotonic_time(),
+      filter: "recent"
+    })
+
+    {:noreply, updated_socket}
+  end
+end
+```
+
+#### Update Multiple Computers at Once
+
+Use `update_computers/2` to update inputs across multiple computers:
+
+```elixir
+@impl true
+def handle_event("reset_dashboard", _params, socket) do
+  updated_socket = update_computers(socket, %{
+    sidebar: %{
+      filter: "all",
+      refresh_trigger: 0
+    },
+    main_content: %{
+      page: 1,
+      sort_by: "date"
+    },
+    stats: %{
+      period: "month"
+    }
+  })
+
+  {:noreply, updated_socket}
+end
+```
+
+**Use Cases for Manual Updates**:
+- Triggering recomputation after external actions (database writes, API calls)
+- Updating multiple computers in response to a single user action
+- Integrating AshComputer with existing business logic
+- Implementing custom refresh patterns not covered by defined events
+
+**Important**: These helpers follow the same rules as events:
+- Only input values can be updated (not vals)
+- All dependent vals automatically recompute
+- Updates are batched in a single frame for efficiency
+
 ### Compile-Time Safe Event References
 
 **Always use the `event/2` macro** instead of hardcoded strings in templates:

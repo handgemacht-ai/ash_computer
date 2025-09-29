@@ -161,16 +161,26 @@ defmodule AshComputer.Executor do
           Map.put(graph, node, local_deps)
       end
 
-    for %{source: {source_comp, source_val}, target: {target_comp, target_input}} <-
-          executor.connections,
+    graph =
+      for %{source: {source_comp, source_val}, target: {target_comp, target_input}} <-
+            executor.connections,
+          reduce: graph do
+        graph ->
+          source_node = {source_comp, source_val}
+          target_node = {target_comp, target_input}
+
+          Map.update(graph, target_node, [source_node], fn deps ->
+            [source_node | deps]
+          end)
+      end
+
+    # Ensure all inputs are in the graph (they may be used only by events/templates)
+    for {comp_name, computer} <- executor.computers,
+        input_name <- Map.keys(computer.inputs),
         reduce: graph do
       graph ->
-        source_node = {source_comp, source_val}
-        target_node = {target_comp, target_input}
-
-        Map.update(graph, target_node, [source_node], fn deps ->
-          [source_node | deps]
-        end)
+        node = {comp_name, input_name}
+        Map.put_new(graph, node, [])
     end
   end
 

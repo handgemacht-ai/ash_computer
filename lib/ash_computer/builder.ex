@@ -49,23 +49,6 @@ defmodule AshComputer.Builder do
     depends_on || []
   end
 
-  # No longer needed - we keep atoms as atoms
-  # defp normalize_name(name) when is_atom(name), do: Atom.to_string(name)
-  # defp normalize_name(name) when is_binary(name), do: name
-  # defp normalize_name(name), do: to_string(name)
-
-  defp default_display_name(nil), do: ""
-
-  defp default_display_name(name) when is_atom(name) do
-    name
-    |> Atom.to_string()
-    |> String.replace("_", " ")
-    |> String.split(~r/\s+/, trim: true)
-    |> Enum.map_join(" ", &String.capitalize/1)
-  end
-
-  defp default_display_name(name) when is_binary(name), do: name
-
   defp compile_compute_function(func_name, module) when is_atom(func_name) do
     # Create a function reference to the generated function in the module
     fn values ->
