@@ -67,7 +67,7 @@ defmodule AshComputer.MixProject do
       name: :ash_computer,
       licenses: ["MIT"],
       files:
-        ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md CHANGELOG* documentation),
+        ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md CHANGELOG*),
       links: %{
         "GitHub" => @source_url,
         "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
