@@ -4,7 +4,7 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/ash_computer)
 [![License](https://img.shields.io/hexpm/l/ash_computer.svg)](https://github.com/marot/ash_computer/blob/main/LICENSE)
 
-A reactive computation DSL for Elixir, powered by [Spark](https://github.com/ash-project/spark).
+A reactive computation DSL for Elixir, powered by [Spark](https://github.com/ash-project/spark). Based on [Lucassifoni/computer](https://github.com/Lucassifoni/computer).
 
 AshComputer provides a declarative way to define computational models that automatically update when their inputs change. Perfect for building calculators, form validations, reactive UIs, and any system requiring cascading computations.
 
