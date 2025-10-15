@@ -4,7 +4,6 @@ defmodule AshComputer.Transformers.CompileComputers do
   use Spark.Dsl.Transformer
 
   alias Spark.Dsl.Transformer
-  alias Spark.Error.DslError
 
 
   @impl true
@@ -12,14 +11,8 @@ defmodule AshComputer.Transformers.CompileComputers do
     computers = Transformer.get_entities(dsl_state, [:computers])
 
     if Enum.empty?(computers) do
-      module = Transformer.get_persisted(dsl_state, :module)
-
-      {:error,
-       DslError.exception(
-         module: module,
-         path: [:computers],
-         message: "define at least one computer"
-       )}
+      # Allow empty computers list - useful for LiveViews with only attachments
+      {:ok, dsl_state}
     else
       # Generate compute functions in the module
       {updated_computers, updated_dsl_state} =
