@@ -24,7 +24,7 @@ Add `ash_computer` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ash_computer, "~> 0.1.0"}
+    {:ash_computer, "~> 0.6.0"}
   ]
 end
 ```
