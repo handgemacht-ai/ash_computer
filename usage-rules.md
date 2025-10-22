@@ -227,43 +227,6 @@ executor = AshComputer.apply_event(MyModule, :load_preset, executor, payload)
 executor = AshComputer.apply_event(MyModule, :calculator, :reset, executor)
 ```
 
-## Stateful Computers
-
-Computers can be stateful to access previous values during computation:
-
-```elixir
-computer :stateful_example do
-  stateful? true  # Enable stateful mode
-
-  input :new_value do
-    initial 0
-  end
-
-  val :average do
-    compute fn %{new_value: new}, all_values ->
-      # Second argument contains all current values including previous computations
-      previous = all_values[:average] || 0
-      (previous + new) / 2
-    end
-  end
-end
-```
-
-**Stateful compute functions**: When `stateful?` is true and compute function has arity 2, the second argument provides access to all current values.
-
-## GenServer Instances
-
-Computers can be wrapped in GenServer processes for concurrent state management:
-
-```elixir
-# Create a GenServer instance
-{:ok, pid} = AshComputer.make_instance(MyModule)
-{:ok, pid} = AshComputer.make_instance(MyModule, :calculator)
-{:ok, pid} = AshComputer.make_instance(MyModule, :calculator, name: MyServer)
-
-# The GenServer handles the computer state internally
-# Use GenServer.call/cast to interact with it
-```
 
 ## LiveView Integration
 
@@ -298,6 +261,107 @@ defmodule MyAppWeb.CalculatorLive do
   end
 end
 ```
+
+### Attaching External Computers
+
+Use the `attach_computer/3` macro to reuse computers defined in external modules. This is useful for sharing common computer logic across multiple LiveViews without duplicating code:
+
+```elixir
+defmodule MyApp.Computers.Cart do
+  use AshComputer
+
+  computer :shopping_cart do
+    input :items do
+      initial []
+    end
+
+    input :discount_percent do
+      initial 0
+    end
+
+    val :subtotal do
+      compute fn %{items: items} -> Enum.sum(items) end
+    end
+
+    val :total do
+      compute fn %{subtotal: subtotal, discount_percent: discount} ->
+        subtotal * (1 - discount / 100)
+      end
+    end
+
+    event :add_item do
+      handle fn %{items: items}, %{"price" => price} ->
+        %{items: [String.to_integer(price) | items]}
+      end
+    end
+
+    event :clear do
+      handle fn _values, _params -> %{items: []} end
+    end
+  end
+end
+
+# In your LiveView, attach the external computer
+defmodule MyAppWeb.CheckoutLive do
+  use Phoenix.LiveView
+  use AshComputer.LiveView
+
+  attach_computer MyApp.Computers.Cart, :shopping_cart
+
+  @impl true
+  def mount(_params, _session, socket) do
+    {:ok, mount_computers(socket)}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div>
+      <p>Items: <%= @shopping_cart_subtotal %></p>
+      <p>Total: <%= @shopping_cart_total %></p>
+      <button phx-click={event(:shopping_cart, :clear)}>Clear Cart</button>
+    </div>
+    """
+  end
+end
+```
+
+**Aliasing Attached Computers**: Use the `:as` option to customize the name used for events and assigns:
+
+```elixir
+defmodule MyAppWeb.DashboardLive do
+  use Phoenix.LiveView
+  use AshComputer.LiveView
+
+  # Attach the same computer with a custom alias
+  attach_computer MyApp.Computers.Sidebar, :sidebar, as: :main_sidebar
+
+  @impl true
+  def mount(_params, _session, socket) do
+    {:ok, mount_computers(socket)}
+  end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <div>
+      <%!-- Access using the alias name --%>
+      <aside :if={not @main_sidebar_collapsed}>
+        <button phx-click={event(:main_sidebar, :toggle)}>Toggle</button>
+      </aside>
+    </div>
+    """
+  end
+end
+```
+
+**Key Points**:
+- Attached computers work identically to inline computers
+- Events are namespaced: `{alias_name}_{event_name}`
+- Assigns follow the same pattern: `@{alias_name}_{input_or_val_name}`
+- Use `event/2` macro for compile-time safe event references
+- Multiple LiveViews can attach the same computer independently
+- Each attachment maintains its own state
 
 ### Initializing Computers with Custom Input Values
 
@@ -770,3 +834,50 @@ The `event/2` macro prevents these common errors:
 # Fix: Use valid computer and event names
 <button phx-click={event(:calculator, :reset)}>Reset</button>
 ```
+
+### Removed Features
+
+The following features were present in earlier versions but have been removed:
+
+**Stateful Computers**: The `stateful?` option and arity-2 compute functions are no longer supported. If you need to track historical state, consider:
+- Storing state in inputs and updating them via events
+- Using a separate data store (database, ETS table)
+- Implementing custom state management outside the computer
+
+```elixir
+# No longer works (removed feature)
+computer :example do
+  stateful? true  # This option has no effect
+
+  val :average do
+    compute fn %{value: v}, all_values ->  # Arity-2 not supported
+      previous = all_values[:average] || 0
+      (previous + v) / 2
+    end
+  end
+end
+
+# Modern approach: use inputs to track state
+computer :example do
+  input :values do
+    initial []
+  end
+
+  val :average do
+    compute fn %{values: values} ->
+      if values == [], do: 0, else: Enum.sum(values) / length(values)
+    end
+  end
+
+  event :add_value do
+    handle fn %{values: values}, %{"value" => value} ->
+      %{values: [value | values]}
+    end
+  end
+end
+```
+
+**GenServer Instances**: `AshComputer.make_instance/1-3` no longer exists. Use:
+- The Executor API directly for programmatic use
+- LiveView integration for UI-driven computers
+- Standard GenServer patterns if you need custom process management
