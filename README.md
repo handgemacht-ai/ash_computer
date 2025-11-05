@@ -16,6 +16,7 @@ AshComputer provides a declarative way to define computational models that autom
 - 🎭 **Event System** - Named events for complex state mutations
 - 🖥️ **LiveView Integration** - First-class support for Phoenix LiveView
 - 🧮 **Chained Computations** - Build complex calculations through dependent values
+- 🔗 **Multi-Computer Composition** - Wire multiple computers together for separation of concerns
 
 ## Installation
 
@@ -338,20 +339,100 @@ computer :moving_average do
 end
 ```
 
+### Multi-Computer Composition
+
+For complex systems, you can compose multiple computers together by wiring outputs from one computer to inputs of another:
+
+```elixir
+defmodule MyApp.FilterComputer do
+  use AshComputer
+
+  computer :filters do
+    input :status do
+      initial "all"
+    end
+
+    input :category do
+      initial "all"
+    end
+
+    val :filter_spec do
+      compute fn %{status: status, category: category} ->
+        [
+          %{field: :status, value: status},
+          %{field: :category, value: category}
+        ]
+      end
+    end
+  end
+end
+
+defmodule MyApp.QueryComputer do
+  use AshComputer
+
+  computer :query do
+    # No initial value - will be connected from filters computer
+    input :filters
+
+    input :page do
+      initial 1
+    end
+
+    val :results do
+      compute fn %{filters: filters, page: page} ->
+        # Build and execute query using filters
+        Database.query(filters, page: page)
+      end
+    end
+  end
+end
+
+# Wire the computers together
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyApp.FilterComputer, :filters)
+  |> AshComputer.Executor.add_computer(MyApp.QueryComputer, :query)
+  |> AshComputer.Executor.connect(
+      from: {:filters, :filter_spec},
+      to: {:query, :filters}
+  )
+  |> AshComputer.Executor.initialize()
+
+# Update filter, query automatically recomputes
+executor =
+  executor
+  |> AshComputer.Executor.start_frame()
+  |> AshComputer.Executor.set_input(:filters, :status, "active")
+  |> AshComputer.Executor.commit_frame()
+
+values = AshComputer.Executor.current_values(executor, :query)
+# results are automatically updated based on new filters
+```
+
+**Benefits**:
+- Clean separation of concerns between computers
+- Efficient batched execution across all connected computers
+- Each computer remains independently testable
+- Changes propagate automatically through connections
+
+For detailed documentation on multi-computer composition patterns, see [usage-rules.md](usage-rules.md).
+
 ## Key Concepts
 
 - **Inputs**: External values that can be updated
 - **Vals**: Computed values that automatically update when dependencies change
 - **Events**: Named handlers for complex state mutations
 - **Dependencies**: Automatically detected from pattern matches in compute functions
+- **Connections**: Wire outputs from one computer to inputs of another for composition
 
 ## Why AshComputer?
 
 - **Declarative**: Focus on what to compute, not how to manage updates
 - **Reactive**: Changes cascade automatically through your computation graph
 - **Testable**: Pure computation functions are easy to test
-- **Composable**: Build complex systems from simple, reusable computers
+- **Composable**: Build complex systems from simple, reusable computers that can be wired together
 - **Integrated**: Works seamlessly with Phoenix LiveView and other Elixir libraries
+- **Efficient**: Batched execution across multiple computers with automatic topological sorting
 
 ## Documentation
 

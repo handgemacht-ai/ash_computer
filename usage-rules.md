@@ -363,6 +363,357 @@ end
 - Multiple LiveViews can attach the same computer independently
 - Each attachment maintains its own state
 
+### Connecting Multiple Computers
+
+For complex applications, you can compose multiple computers by wiring the output values (vals) from one computer to the input values of another. This is different from "attaching external computers" (which is about code reuse in LiveView modules) - connecting is about **data flow between independent computers**.
+
+#### When to Use Connections vs Attachments
+
+| Feature | Connecting Computers | Attaching External Computers |
+|---------|---------------------|------------------------------|
+| **Purpose** | Compose data flow between computers | Reuse computer definitions across LiveViews |
+| **API** | `Executor.connect/2` | `attach_computer/3` macro |
+| **Scope** | Programmatic, works with Executor | LiveView only |
+| **Use Case** | Separation of concerns, complex pipelines | DRY principle for LiveView code |
+| **State** | Single executor manages all computers | Each LiveView has independent state |
+
+#### Basic Connection Setup
+
+Use `Executor.connect/2` to wire computers together:
+
+```elixir
+defmodule MyApp.FilterComputer do
+  use AshComputer
+
+  computer :filters do
+    input :status do
+      initial "all"
+    end
+
+    input :category do
+      initial "all"
+    end
+
+    val :filter_spec do
+      compute fn %{status: status, category: category} ->
+        [
+          %{field: :status, value: status},
+          %{field: :category, value: category}
+        ]
+        |> Enum.reject(fn %{value: v} -> v == "all" end)
+      end
+    end
+  end
+end
+
+defmodule MyApp.QueryComputer do
+  use AshComputer
+
+  computer :query do
+    # No initial value - will be connected from another computer
+    input :filters
+
+    input :page do
+      initial 1
+    end
+
+    input :page_size do
+      initial 20
+    end
+
+    val :results do
+      compute fn %{filters: filters, page: page, page_size: size} ->
+        # Execute database query using the filters
+        Database.query(filters, page: page, page_size: size)
+      end
+    end
+
+    val :total_count do
+      compute fn %{filters: filters} ->
+        Database.count(filters)
+      end
+    end
+  end
+end
+
+# Wire the computers together with Executor
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyApp.FilterComputer, :filters)
+  |> AshComputer.Executor.add_computer(MyApp.QueryComputer, :query)
+  |> AshComputer.Executor.connect(
+      from: {:filters, :filter_spec},
+      to: {:query, :filters}
+  )
+  |> AshComputer.Executor.initialize()
+
+# Access values from any computer
+filter_values = AshComputer.Executor.current_values(executor, :filters)
+query_values = AshComputer.Executor.current_values(executor, :query)
+```
+
+#### Required Inputs (No Initial Values)
+
+When an input will be connected from another computer, you can omit the `initial` value:
+
+```elixir
+computer :downstream do
+  # Required input - no initial value
+  input :data_from_upstream
+
+  input :local_setting do
+    initial "default"
+  end
+
+  val :result do
+    compute fn %{data_from_upstream: data, local_setting: setting} ->
+      process(data, setting)
+    end
+  end
+end
+```
+
+**Benefits**:
+- Makes dependencies explicit
+- Avoids specifying redundant initial values
+- Computer won't initialize until connected input is provided
+- Clear contract about what must be provided externally
+
+#### Chaining Multiple Computers
+
+You can create pipelines by chaining connections:
+
+```elixir
+defmodule MyApp.DashboardComputers do
+  use AshComputer
+
+  # Step 1: Filter management
+  computer :filter_manager do
+    input :selected_filters do
+      initial %{}
+    end
+
+    val :filter_spec do
+      compute fn %{selected_filters: filters} ->
+        build_filter_spec(filters)
+      end
+    end
+  end
+
+  # Step 2: Data query
+  computer :data_query do
+    input :filters  # Connected from filter_manager
+
+    val :raw_data do
+      compute fn %{filters: filters} ->
+        Database.query(filters)
+      end
+    end
+  end
+
+  # Step 3: Data processing
+  computer :data_processor do
+    input :raw_data  # Connected from data_query
+    input :processing_mode do
+      initial :summary
+    end
+
+    val :processed_data do
+      compute fn %{raw_data: data, processing_mode: mode} ->
+        process_data(data, mode)
+      end
+    end
+  end
+
+  # Step 4: Visualization
+  computer :visualizer do
+    input :data  # Connected from data_processor
+    input :chart_type do
+      initial :bar
+    end
+
+    val :chart_config do
+      compute fn %{data: data, chart_type: type} ->
+        build_chart(data, type)
+      end
+    end
+  end
+end
+
+# Wire them all together
+executor =
+  AshComputer.Executor.new()
+  |> AshComputer.Executor.add_computer(MyApp.DashboardComputers, :filters)
+  |> AshComputer.Executor.add_computer(MyApp.DashboardComputers, :query)
+  |> AshComputer.Executor.add_computer(MyApp.DashboardComputers, :processor)
+  |> AshComputer.Executor.add_computer(MyApp.DashboardComputers, :viz)
+  |> AshComputer.Executor.connect(
+      from: {:filters, :filter_spec},
+      to: {:query, :filters}
+  )
+  |> AshComputer.Executor.connect(
+      from: {:query, :raw_data},
+      to: {:processor, :raw_data}
+  )
+  |> AshComputer.Executor.connect(
+      from: {:processor, :processed_data},
+      to: {:viz, :data}
+  )
+  |> AshComputer.Executor.initialize()
+```
+
+#### Batched Execution Across Computers
+
+Changes propagate efficiently through all connected computers using frame-based batching:
+
+```elixir
+# Update multiple inputs across different computers
+executor =
+  executor
+  |> AshComputer.Executor.start_frame()
+  |> AshComputer.Executor.set_input(:filters, :selected_filters, %{status: "active"})
+  |> AshComputer.Executor.set_input(:processor, :processing_mode, :detailed)
+  |> AshComputer.Executor.set_input(:viz, :chart_type, :line)
+  |> AshComputer.Executor.commit_frame()
+
+# All dependent vals across all computers are recomputed in a single pass
+# Execution order is automatically determined by topological sorting
+```
+
+**How Batched Execution Works**:
+1. `start_frame()` begins collecting input changes
+2. `set_input()` records changes without computing
+3. `commit_frame()` triggers computation:
+   - Builds dependency graph across all computers
+   - Topologically sorts affected nodes
+   - Computes each val exactly once in correct order
+   - Propagates changes through connections
+
+#### Connection Rules and Best Practices
+
+**Valid Connections**:
+- Any val can connect to any input (same or different computer)
+- Multiple vals can connect to different inputs of the same computer
+- Cannot connect multiple vals to the same input
+
+**Best Practices**:
+1. **Separation of Concerns**: Each computer should handle one logical concern
+   - Filters computer: manages filter state
+   - Query computer: handles data fetching
+   - Display computer: formats for UI
+
+2. **Required Inputs**: Don't specify `initial` for inputs that will be connected
+
+3. **Testing**: Each computer can be tested independently:
+   ```elixir
+   test "query computer handles filters correctly" do
+     executor =
+       AshComputer.Executor.new()
+       |> AshComputer.Executor.add_computer(MyApp.QueryComputer, :query,
+         initial: %{filters: [%{field: :status, value: "active"}]}
+       )
+       |> AshComputer.Executor.initialize()
+
+     values = AshComputer.Executor.current_values(executor, :query)
+     assert length(values[:results]) > 0
+   end
+   ```
+
+4. **Batch Updates**: Always use frames when updating multiple inputs for efficiency
+
+#### Using Connected Computers in LiveView
+
+You can use the Executor with connected computers in LiveView by storing it in assigns:
+
+```elixir
+defmodule MyAppWeb.DashboardLive do
+  use Phoenix.LiveView
+
+  def mount(_params, _session, socket) do
+    executor =
+      AshComputer.Executor.new()
+      |> AshComputer.Executor.add_computer(MyApp.FilterComputer, :filters)
+      |> AshComputer.Executor.add_computer(MyApp.QueryComputer, :query)
+      |> AshComputer.Executor.connect(
+          from: {:filters, :filter_spec},
+          to: {:query, :filters}
+      )
+      |> AshComputer.Executor.initialize()
+
+    {:ok, assign(socket, :executor, executor)}
+  end
+
+  def handle_event("update_filter", %{"status" => status}, socket) do
+    executor =
+      socket.assigns.executor
+      |> AshComputer.Executor.start_frame()
+      |> AshComputer.Executor.set_input(:filters, :status, status)
+      |> AshComputer.Executor.commit_frame()
+
+    # Extract values for template
+    query_values = AshComputer.Executor.current_values(executor, :query)
+
+    socket =
+      socket
+      |> assign(:executor, executor)
+      |> assign(:results, query_values[:results])
+      |> assign(:total_count, query_values[:total_count])
+
+    {:noreply, socket}
+  end
+
+  def render(assigns) do
+    ~H"""
+    <div>
+      <p>Total: <%= @total_count %></p>
+      <div :for={item <- @results}>
+        <%= item.name %>
+      </div>
+    </div>
+    """
+  end
+end
+```
+
+**Note**: When using Executor directly in LiveView (not with `use AshComputer.LiveView`), you manage the executor manually in assigns and extract values as needed.
+
+#### Benefits of Connecting Computers
+
+1. **Separation of Concerns**: Each computer handles a single responsibility
+2. **Reusability**: Computers can be tested and used independently
+3. **Efficiency**: Batched execution with topological sorting
+4. **Clear Data Flow**: Connections make dependencies explicit
+5. **Maintainability**: Changes to one computer don't require touching others
+6. **Composability**: Build complex systems from simple building blocks
+
+#### Common Patterns
+
+**Filter → Query → Display Pipeline**:
+```elixir
+executor
+|> Executor.connect(from: {:filters, :filter_spec}, to: {:query, :filters})
+|> Executor.connect(from: {:query, :results}, to: {:display, :data})
+```
+
+**Parallel Processing**:
+```elixir
+# Multiple computers consume the same data
+executor
+|> Executor.connect(from: {:source, :data}, to: {:processor_a, :input})
+|> Executor.connect(from: {:source, :data}, to: {:processor_b, :input})
+|> Executor.connect(from: {:source, :data}, to: {:processor_c, :input})
+```
+
+**Fan-in Pattern**:
+```elixir
+# Multiple sources feed into aggregator
+# (Must use different input names)
+executor
+|> Executor.connect(from: {:source_a, :result}, to: {:aggregator, :input_a})
+|> Executor.connect(from: {:source_b, :result}, to: {:aggregator, :input_b})
+|> Executor.connect(from: {:source_c, :result}, to: {:aggregator, :input_c})
+```
+
 ### Initializing Computers with Custom Input Values
 
 To initialize computers with values from mount parameters (e.g., URL params) or session data, pass an initial inputs map to `mount_computers/2`:
