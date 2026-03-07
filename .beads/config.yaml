@@ -1,0 +1,6 @@
+prefix: ac
+issue-prefix: "ac"
+
+sync.mode: "dolt-native"
+
+sync-branch: "beads-sync"
