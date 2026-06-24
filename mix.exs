@@ -5,7 +5,7 @@ defmodule AshComputer.MixProject do
   Ash wrapper for computer
   """
 
-  @version "0.2.0"
+  @version "0.2.1"
 
   @source_url "https://github.com/marot/ash_computer"
 

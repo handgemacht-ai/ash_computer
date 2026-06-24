@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-24
+
+### Fixed
+- Declare the `__spark_metadata__` field on the `Computer`, `Input`, `Val` and
+  `Event` DSL entity structs so Spark 2.7+ can attach source annotations without
+  emitting a deprecation warning.
+
 ## [0.1.0] - 2025-10-06
 
 ### Added

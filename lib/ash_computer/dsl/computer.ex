@@ -9,6 +9,7 @@ defmodule AshComputer.Dsl.Computer do
 
   @type t :: %__MODULE__{
           __identifier__: name(),
+          __spark_metadata__: Spark.Dsl.Entity.spark_meta() | nil,
           name: name(),
           description: String.t() | nil,
           stateful?: boolean(),
@@ -19,6 +20,7 @@ defmodule AshComputer.Dsl.Computer do
 
   defstruct [
     :__identifier__,
+    :__spark_metadata__,
     :name,
     :description,
     stateful?: false,
