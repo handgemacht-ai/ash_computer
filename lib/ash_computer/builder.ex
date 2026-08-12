@@ -1,6 +1,7 @@
 defmodule AshComputer.Builder do
   @moduledoc false
 
+  alias AshComputer.Computer
   alias AshComputer.Dsl.Computer, as: ComputerDefinition
   alias AshComputer.Dsl.Input
   alias AshComputer.Dsl.Val
@@ -15,11 +16,7 @@ defmodule AshComputer.Builder do
     inputs = build_inputs(definition.inputs)
     {vals, dependencies} = build_vals(definition.vals, module)
 
-    %{
-      inputs: inputs,
-      vals: vals,
-      dependencies: dependencies
-    }
+    Computer.new(inputs, vals, dependencies)
   end
 
   defp build_inputs(inputs) do

@@ -1,6 +1,8 @@
 defmodule AshComputer.Executor do
   @moduledoc false
 
+  alias AshComputer.Executor.Node
+
   defstruct computers: %{},
             connections: [],
             values: %{},
@@ -19,15 +21,7 @@ defmodule AshComputer.Executor do
   end
 
   def add_computer(%__MODULE__{} = executor, module, computer_name) do
-    spec = AshComputer.computer_spec(module, computer_name)
-    %{inputs: inputs, vals: vals, dependencies: dependencies} = spec
-
-    computer = %{
-      inputs: inputs,
-      vals: vals,
-      dependencies: dependencies
-    }
-
+    computer = AshComputer.computer_spec(module, computer_name)
     %{executor | computers: Map.put(executor.computers, computer_name, computer)}
   end
 
@@ -97,7 +91,7 @@ defmodule AshComputer.Executor do
         compute_node(executor, node, values, errors)
       end)
 
-    case Enum.any?(sorted_affected, fn node -> Map.has_key?(final_errors, node) end) do
+    case Enum.any?(sorted_affected, fn node -> Map.has_key?(final_errors, Node.key(node)) end) do
       false ->
         %{executor | values: final_values, errors: final_errors, frame: nil, pending: nil}
 
@@ -151,11 +145,11 @@ defmodule AshComputer.Executor do
           {val_name, deps} <- computer.dependencies,
           reduce: %{} do
         graph ->
-          node = {comp_name, val_name}
+          node = Node.new(comp_name, val_name, :val)
 
           local_deps =
             for dep <- deps do
-              {comp_name, dep}
+              Node.new(comp_name, dep, kind_for(computer, dep))
             end
 
           Map.put(graph, node, local_deps)
@@ -166,8 +160,8 @@ defmodule AshComputer.Executor do
             executor.connections,
           reduce: graph do
         graph ->
-          source_node = {source_comp, source_val}
-          target_node = {target_comp, target_input}
+          source_node = Node.new(source_comp, source_val, :val)
+          target_node = Node.new(target_comp, target_input, :input)
 
           Map.update(graph, target_node, [source_node], fn deps ->
             [source_node | deps]
@@ -179,9 +173,13 @@ defmodule AshComputer.Executor do
         input_name <- Map.keys(computer.inputs),
         reduce: graph do
       graph ->
-        node = {comp_name, input_name}
+        node = Node.new(comp_name, input_name, :input)
         Map.put_new(graph, node, [])
     end
+  end
+
+  defp kind_for(computer, name) do
+    if Map.has_key?(computer.inputs, name), do: :input, else: :val
   end
 
   defp topological_sort(graph) do
@@ -235,7 +233,10 @@ defmodule AshComputer.Executor do
   end
 
   defp find_affected_nodes(executor, changed_nodes) do
-    changed_set = MapSet.new(changed_nodes)
+    # pending_inputs is keyed by `{computer, name}` tuples that are always inputs;
+    # lift them to typed nodes so they align with the Node-keyed global graph.
+    changed = Enum.map(changed_nodes, fn {computer, name} -> Node.new(computer, name, :input) end)
+    changed_set = MapSet.new(changed)
     do_find_affected(executor.global_graph, changed_set, changed_set)
   end
 
@@ -270,64 +271,64 @@ defmodule AshComputer.Executor do
     for {val, deps} <- graph, node in deps, do: val
   end
 
-  defp compute_node(executor, {comp_name, node_name}, values, errors) do
+  defp compute_node(executor, %Node{} = node, values, errors) do
+    %Node{computer: comp_name, name: node_name, kind: kind} = node
     computer = executor.computers[comp_name]
+    node_key = Node.key(node)
 
-    case Map.has_key?(computer.inputs, node_name) do
-      true ->
-        node = {comp_name, node_name}
-        connected_value = find_connected_value(executor, node, values)
-        current_value = Map.get(values, node)
+    case kind do
+      :input ->
+        connected_value = find_connected_value(executor, node_key, values)
+        current_value = Map.get(values, node_key)
         initial_value = Map.get(computer.inputs, node_name)
 
         value = connected_value || current_value || initial_value
-        {Map.put(values, node, value), errors}
+        {Map.put(values, node_key, value), errors}
 
-      false ->
-        compute_val(executor, comp_name, node_name, values, errors)
+      :val ->
+        compute_val(executor, node, values, errors)
     end
   end
 
-  defp find_connected_value(executor, target_node, values) do
-    case Enum.find(executor.connections, fn conn -> conn.target == target_node end) do
+  defp find_connected_value(executor, target_key, values) do
+    case Enum.find(executor.connections, fn conn -> conn.target == target_key end) do
       nil -> nil
-      %{source: source_node} -> Map.get(values, source_node)
+      %{source: source_key} -> Map.get(values, source_key)
     end
   end
 
-  defp compute_val(executor, comp_name, val_name, values, errors) do
+  defp compute_val(executor, %Node{} = node, values, errors) do
+    %Node{computer: comp_name, name: val_name} = node
     computer = executor.computers[comp_name]
     deps = Map.get(computer.dependencies, val_name, [])
+    node_key = Node.key(node)
 
-    dep_nodes =
+    dep_keys =
       for dep <- deps do
-        {comp_name, dep}
+        Node.key(Node.new(comp_name, dep))
       end
 
-    case Enum.find(dep_nodes, fn node -> Map.has_key?(errors, node) end) do
+    case Enum.find(dep_keys, fn key -> Map.has_key?(errors, key) end) do
       nil ->
         compute_fn = computer.vals[val_name]
 
         args =
           for dep <- deps, into: %{} do
-            {dep, Map.get(values, {comp_name, dep})}
+            {dep, Map.get(values, Node.key(Node.new(comp_name, dep)))}
           end
 
         result = compute_fn.(args)
 
         case normalize_result(result) do
           {:ok, value} ->
-            node = {comp_name, val_name}
-            {Map.put(values, node, value), Map.delete(errors, node)}
+            {Map.put(values, node_key, value), Map.delete(errors, node_key)}
 
           {:error, reason} ->
-            node = {comp_name, val_name}
-            {values, Map.put(errors, node, {:expected, reason})}
+            {values, Map.put(errors, node_key, {:expected, reason})}
         end
 
-      blocked_dep ->
-        node = {comp_name, val_name}
-        {values, Map.put(errors, node, {:blocked, blocked_dep})}
+      blocked_key ->
+        {values, Map.put(errors, node_key, {:blocked, blocked_key})}
     end
   end
 

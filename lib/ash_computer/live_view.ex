@@ -406,11 +406,7 @@ defmodule AshComputer.LiveView.Helpers do
         spec = AshComputer.computer_spec(source_module, computer_name)
         %{inputs: inputs, vals: vals, dependencies: dependencies} = spec
 
-        computer = %{
-          inputs: inputs,
-          vals: vals,
-          dependencies: dependencies
-        }
+        computer = AshComputer.Computer.new(inputs, vals, dependencies)
 
         %{acc | computers: Map.put(acc.computers, alias_name, computer)}
       end)
