@@ -3,6 +3,7 @@ defmodule AshComputer.Executor do
 
   alias AshComputer.Executor.Error
   alias AshComputer.Executor.Node
+  alias AshComputer.Result
 
   defstruct computers: %{},
             connections: [],
@@ -315,11 +316,11 @@ defmodule AshComputer.Executor do
 
         result = compute_fn.(args)
 
-        case normalize_result(result) do
-          {:ok, value} ->
+        case Result.normalize(result) do
+          %Result{kind: :ok, value: value} ->
             {Map.put(values, node_key, value), Map.delete(errors, node_key)}
 
-          {:error, reason} ->
+          %Result{kind: :error, reason: reason} ->
             {values, Map.put(errors, node_key, Error.expected(reason))}
         end
 
@@ -329,7 +330,4 @@ defmodule AshComputer.Executor do
     end
   end
 
-  defp normalize_result({:ok, value}), do: {:ok, value}
-  defp normalize_result({:error, reason}), do: {:error, reason}
-  defp normalize_result(value), do: {:ok, value}
 end
