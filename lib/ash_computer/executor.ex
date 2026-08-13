@@ -1,6 +1,7 @@
 defmodule AshComputer.Executor do
   @moduledoc false
 
+  alias AshComputer.Executor.Error
   alias AshComputer.Executor.Node
 
   defstruct computers: %{},
@@ -112,7 +113,7 @@ defmodule AshComputer.Executor do
 
   def current_errors(%__MODULE__{} = executor, computer_name) do
     for {{^computer_name, key}, error} <- executor.errors, into: %{} do
-      {key, error}
+      {key, Error.to_tuple(error)}
     end
   end
 
@@ -126,7 +127,7 @@ defmodule AshComputer.Executor do
 
   def pending_errors(%__MODULE__{pending: %{errors: errors}}, computer_name) do
     for {{^computer_name, key}, error} <- errors, into: %{} do
-      {key, error}
+      {key, Error.to_tuple(error)}
     end
   end
 
@@ -303,12 +304,7 @@ defmodule AshComputer.Executor do
     deps = Map.get(computer.dependencies, val_name, [])
     node_key = Node.key(node)
 
-    dep_keys =
-      for dep <- deps do
-        Node.key(Node.new(comp_name, dep))
-      end
-
-    case Enum.find(dep_keys, fn key -> Map.has_key?(errors, key) end) do
+    case Enum.find(deps, fn dep -> Map.has_key?(errors, Node.key(Node.new(comp_name, dep))) end) do
       nil ->
         compute_fn = computer.vals[val_name]
 
@@ -324,11 +320,12 @@ defmodule AshComputer.Executor do
             {Map.put(values, node_key, value), Map.delete(errors, node_key)}
 
           {:error, reason} ->
-            {values, Map.put(errors, node_key, {:expected, reason})}
+            {values, Map.put(errors, node_key, Error.expected(reason))}
         end
 
-      blocked_key ->
-        {values, Map.put(errors, node_key, {:blocked, blocked_key})}
+      blocked_dep ->
+        blocked_node = Node.new(comp_name, blocked_dep)
+        {values, Map.put(errors, node_key, Error.blocked(blocked_node))}
     end
   end
 
