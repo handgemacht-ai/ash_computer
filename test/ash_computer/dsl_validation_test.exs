@@ -35,7 +35,7 @@ defmodule AshComputer.DslValidationTest do
           input :a do
           end
 
-          input :b do  
+          input :b do
           end
 
           val :result do

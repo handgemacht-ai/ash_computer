@@ -5,7 +5,7 @@ defmodule AshComputer.Dsl.Input do
 
   @type t :: %__MODULE__{
           __identifier__: name(),
-          __spark_metadata__: Spark.Dsl.Entity.spark_meta() | nil,
+          __spark_metadata__: term(),
           name: name(),
           description: String.t() | nil,
           initial: any(),

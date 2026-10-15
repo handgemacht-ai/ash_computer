@@ -10,7 +10,7 @@ defmodule AshComputer.LiveViewAttachmentsTest do
       use Phoenix.LiveView
       use AshComputer.LiveView
 
-      attach_computer AshComputer.TestComputers.Counter, :counter
+      attach_computer(AshComputer.TestComputers.Counter, :counter)
 
       @impl true
       def mount(_params, _session, socket) do
@@ -62,7 +62,7 @@ defmodule AshComputer.LiveViewAttachmentsTest do
       use Phoenix.LiveView
       use AshComputer.LiveView
 
-      attach_computer AshComputer.TestComputers.Sidebar, :sidebar, as: :main_sidebar
+      attach_computer(AshComputer.TestComputers.Sidebar, :sidebar, as: :main_sidebar)
 
       @impl true
       def mount(_params, _session, socket) do
@@ -113,8 +113,8 @@ defmodule AshComputer.LiveViewAttachmentsTest do
       use Phoenix.LiveView
       use AshComputer.LiveView
 
-      attach_computer AshComputer.TestComputers.Counter, :counter
-      attach_computer AshComputer.TestComputers.Sidebar, :sidebar
+      attach_computer(AshComputer.TestComputers.Counter, :counter)
+      attach_computer(AshComputer.TestComputers.Sidebar, :sidebar)
 
       @impl true
       def mount(_params, _session, socket) do
@@ -162,7 +162,7 @@ defmodule AshComputer.LiveViewAttachmentsTest do
       use Phoenix.LiveView
       use AshComputer.LiveView
 
-      attach_computer AshComputer.TestComputers.Counter, :counter
+      attach_computer(AshComputer.TestComputers.Counter, :counter)
 
       computer :local_state do
         input :message do
@@ -234,7 +234,7 @@ defmodule AshComputer.LiveViewAttachmentsTest do
       use Phoenix.LiveView
       use AshComputer.LiveView
 
-      attach_computer AshComputer.TestComputers.Cart, :shopping_cart, as: :cart
+      attach_computer(AshComputer.TestComputers.Cart, :shopping_cart, as: :cart)
 
       @impl true
       def mount(_params, _session, socket) do
@@ -313,7 +313,7 @@ defmodule AshComputer.LiveViewAttachmentsTest do
         use Phoenix.LiveView
         use AshComputer.LiveView
 
-        attach_computer AshComputer.TestComputers.Counter, :counter
+        attach_computer(AshComputer.TestComputers.Counter, :counter)
       end
 
       all_computers = AshComputer.LiveView.get_all_computers(AttachedOnlyLive)
@@ -328,8 +328,8 @@ defmodule AshComputer.LiveViewAttachmentsTest do
         use Phoenix.LiveView
         use AshComputer.LiveView
 
-        attach_computer AshComputer.TestComputers.Counter, :counter
-        attach_computer AshComputer.TestComputers.Sidebar, :sidebar, as: :main_sidebar
+        attach_computer(AshComputer.TestComputers.Counter, :counter)
+        attach_computer(AshComputer.TestComputers.Sidebar, :sidebar, as: :main_sidebar)
 
         computer :local do
           input :x do

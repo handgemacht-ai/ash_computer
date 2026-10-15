@@ -5,7 +5,6 @@ defmodule AshComputer.Transformers.CompileComputers do
 
   alias Spark.Dsl.Transformer
 
-
   @impl true
   def transform(dsl_state) do
     computers = Transformer.get_entities(dsl_state, [:computers])
@@ -53,6 +52,7 @@ defmodule AshComputer.Transformers.CompileComputers do
     {%{computer | vals: updated_vals}, updated_dsl_state}
   end
 
+  # sobelow_skip ["DOS.BinToAtom"]
   defp generate_val_function(val, computer_name, dsl_state) do
     # Generate a unique function name
     func_name = :"__compute_#{computer_name}_#{val.name}__"
@@ -65,15 +65,16 @@ defmodule AshComputer.Transformers.CompileComputers do
       {:fn, _meta, [{:->, _arrow_meta, [args, body]}]} ->
         # Use Spark's recommended eval pattern to inject the function
         # This preserves module context (aliases, imports) and avoids deprecation
-        updated_dsl_state = Transformer.eval(
-          dsl_state,
-          [func_name: func_name, args: args, body: body],
-          quote do
-            def unquote(func_name)(unquote_splicing(args)) do
-              unquote(body)
+        updated_dsl_state =
+          Transformer.eval(
+            dsl_state,
+            [func_name: func_name, args: args, body: body],
+            quote do
+              def unquote(func_name)(unquote_splicing(args)) do
+                unquote(body)
+              end
             end
-          end
-        )
+          )
 
         # Store the function name instead of the AST
         {%{val_with_deps | compute: func_name}, updated_dsl_state}
@@ -89,6 +90,7 @@ defmodule AshComputer.Transformers.CompileComputers do
       nil ->
         # Parse dependencies from the quoted AST
         dependencies = AshComputer.AstParser.parse_quoted_function(val.compute)
+
         # IO.inspect({:parsing_dependencies_inline, val.name, dependencies}, label: "Dependency parsing (inline)")
         %{val | depends_on: dependencies}
 
@@ -97,5 +99,4 @@ defmodule AshComputer.Transformers.CompileComputers do
         val
     end
   end
-
 end

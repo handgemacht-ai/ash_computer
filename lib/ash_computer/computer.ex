@@ -1,7 +1,7 @@
 defmodule AshComputer.Computer do
   @moduledoc """
   The compiled form of a computer: inputs, vals (compute functions), and
-  dependencies. Returned by `AshComputer.Builder` and stored in the executor
+  dependencies. Returned by the internal builder and stored in the executor
   under `executor.computers[name]`.
 
   Replaces the bare `%{inputs: _, vals: _, dependencies: _}` map. Field access

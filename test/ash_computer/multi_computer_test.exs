@@ -40,8 +40,9 @@ defmodule AshComputer.MultiComputerTest do
         compute fn %{filters: filters, page: page} ->
           where_clause =
             filters
-            |> Enum.map(fn %{field: field, value: value} -> "#{field} = '#{value}'" end)
-            |> Enum.join(" AND ")
+            |> Enum.map_join(" AND ", fn %{field: field, value: value} ->
+              "#{field} = '#{value}'"
+            end)
 
           "SELECT * FROM items WHERE #{where_clause} LIMIT 10 OFFSET #{(page - 1) * 10}"
         end

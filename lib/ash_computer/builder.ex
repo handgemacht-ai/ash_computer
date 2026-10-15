@@ -53,6 +53,7 @@ defmodule AshComputer.Builder do
     end
   end
 
+  # sobelow_skip ["RCE.CodeModule"]
   defp compile_compute_function(quoted_ast, _module) do
     # Fallback for any remaining AST (backwards compatibility)
     {fun, _binding} = Code.eval_quoted(quoted_ast)

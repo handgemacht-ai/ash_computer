@@ -23,7 +23,9 @@ defmodule AshComputer.FunctionGenerationTest do
 
       # List all generated compute functions
       functions = SimpleComputer.__info__(:functions)
-      compute_functions = functions
+
+      compute_functions =
+        functions
         |> Enum.filter(fn {name, _arity} ->
           String.contains?(to_string(name), "__compute_")
         end)
@@ -82,7 +84,9 @@ defmodule AshComputer.FunctionGenerationTest do
 
       # List all functions for debugging
       functions = AliasComputer.__info__(:functions)
-      compute_functions = functions
+
+      compute_functions =
+        functions
         |> Enum.filter(fn {name, _arity} ->
           String.contains?(to_string(name), "__compute_")
         end)
@@ -182,7 +186,7 @@ defmodule AshComputer.FunctionGenerationTest do
         # Try to get function info
         fun_info = Function.info(&SimpleComputer.__compute_simple_doubled__/1)
         IO.puts("\nFunction info for __compute_simple_doubled__/1:")
-        IO.inspect(fun_info, limit: :infinity)
+        IO.puts(inspect(fun_info, limit: :infinity))
       end
     end
   end

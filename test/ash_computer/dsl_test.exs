@@ -116,6 +116,7 @@ defmodule AshComputer.DslTest do
 
       val :sum do
         description "Sum using aliased Enum"
+
         compute fn %{numbers: numbers} ->
           # This uses the alias and should work after our fix
           MyEnum.sum(numbers)

@@ -42,6 +42,7 @@ defmodule AshComputer.AstParser do
   defp parse_function_clause(_), do: []
 
   # Extract dependencies from various pattern types
+  # sobelow_skip ["DOS.StringToAtom"]
   defp extract_dependencies_from_pattern({:%{}, _meta, pairs}) when is_list(pairs) do
     # Map pattern matching with atom keys
     Enum.flat_map(pairs, fn

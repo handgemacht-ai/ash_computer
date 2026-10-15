@@ -18,7 +18,8 @@ defmodule AshComputer.Executor.Node do
 
   @doc "Construct a node. `kind` defaults to `:val`; pass `:input` for inputs."
   @spec new(atom(), atom(), kind()) :: t()
-  def new(computer, name, kind \\ :val), do: %__MODULE__{computer: computer, name: name, kind: kind}
+  def new(computer, name, kind \\ :val),
+    do: %__MODULE__{computer: computer, name: name, kind: kind}
 
   @doc "The 2-tuple used to key the value/error stores. Identical to the prior key."
   @spec key(t()) :: {atom(), atom()}

@@ -39,6 +39,8 @@ defmodule AshComputer.LiveView do
   - Automatically sync computer state to socket assigns
   """
 
+  alias AshComputer.LiveView.Helpers
+
   defmacro __using__(_opts) do
     quote do
       use AshComputer
@@ -217,7 +219,7 @@ defmodule AshComputer.LiveView do
     quote do
       @impl true
       def handle_event(unquote(event_string), params, socket) do
-        executor = AshComputer.LiveView.Helpers.get_executor_from_assigns(socket)
+        executor = Helpers.get_executor_from_assigns(socket)
 
         # Get the event handler from the source module
         computer_def = AshComputer.Info.computer(unquote(source_module), unquote(computer_name))
@@ -264,7 +266,7 @@ defmodule AshComputer.LiveView do
         updated_socket =
           socket
           |> Phoenix.Component.assign(:__executor__, updated_executor)
-          |> AshComputer.LiveView.Helpers.sync_executor_to_assigns()
+          |> Helpers.sync_executor_to_assigns()
 
         {:noreply, updated_socket}
       end
@@ -399,7 +401,9 @@ defmodule AshComputer.LiveView.Helpers do
     all_computers = AshComputer.LiveView.get_all_computers(module)
 
     executor =
-      Enum.reduce(all_computers, AshComputer.Executor.new(), fn {alias_name, source_module, computer_name}, acc ->
+      Enum.reduce(all_computers, AshComputer.Executor.new(), fn {alias_name, source_module,
+                                                                 computer_name},
+                                                                acc ->
         # Add computer to executor using alias name as the key
         # This is a bit of a hack - we're calling add_computer with the source module
         # and computer name to get the spec, but storing it under alias_name
@@ -440,6 +444,7 @@ defmodule AshComputer.LiveView.Helpers do
 
   All values are assigned as `computer_name_value_name`.
   """
+  # sobelow_skip ["DOS.StringToAtom"]
   def sync_executor_to_assigns(socket) do
     executor = socket.assigns[:__executor__]
 
