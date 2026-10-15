@@ -4,6 +4,7 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
   """
   use Spark.Dsl.Verifier
   alias Spark.Dsl.Verifier
+  alias Spark.Error.DslError
 
   @impl true
   def verify(dsl_state) do
@@ -68,7 +69,7 @@ defmodule AshComputer.Verifiers.ValidateDependencies do
       []
     else
       [
-        Spark.Error.DslError.exception(
+        DslError.exception(
           path: [:computers, computer_name, :vals, val.name],
           message: "Val `#{val.name}` references non-existent input or val `#{dep}`"
         )

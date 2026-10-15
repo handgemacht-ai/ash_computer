@@ -66,8 +66,7 @@ defmodule AshComputer.MixProject do
     [
       name: :ash_computer,
       licenses: ["MIT"],
-      files:
-        ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md CHANGELOG*),
+      files: ~w(lib .formatter.exs mix.exs README* LICENSE* usage-rules.md CHANGELOG*),
       links: %{
         "GitHub" => @source_url,
         "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
@@ -78,7 +77,7 @@ defmodule AshComputer.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:usage_rules, "~> 0.1", only: [:dev]},
+      {:usage_rules, "~> 1.2", only: [:dev]},
       {:claude, "~> 0.5", only: [:dev], runtime: false},
       {:spark, "~> 2.2"},
       # Dev/test dependencies

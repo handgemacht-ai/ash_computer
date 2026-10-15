@@ -40,5 +40,7 @@ defmodule AshComputer.Executor.Error do
   """
   @spec to_tuple(t()) :: {:expected, term()} | {:blocked, {atom(), atom()}}
   def to_tuple(%__MODULE__{kind: :expected, reason: reason}), do: {:expected, reason}
-  def to_tuple(%__MODULE__{kind: :blocked, blocked_node: %Node{} = node}), do: {:blocked, Node.key(node)}
+
+  def to_tuple(%__MODULE__{kind: :blocked, blocked_node: %Node{} = node}),
+    do: {:blocked, Node.key(node)}
 end

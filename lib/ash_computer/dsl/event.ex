@@ -6,7 +6,7 @@ defmodule AshComputer.Dsl.Event do
 
   @type t :: %__MODULE__{
           __identifier__: name(),
-          __spark_metadata__: Spark.Dsl.Entity.spark_meta() | nil,
+          __spark_metadata__: term(),
           name: name(),
           handle: handler(),
           description: String.t() | nil

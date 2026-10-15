@@ -49,7 +49,7 @@ defmodule AshComputer.Executor do
         %{executor | values: values, errors: errors, global_graph: graph, pending: nil}
 
       _ ->
-        failed_nodes = Map.keys(errors) |> Enum.map(&inspect/1) |> Enum.join(", ")
+        failed_nodes = errors |> Map.keys() |> Enum.map_join(", ", &inspect/1)
 
         raise ArgumentError,
               "Failed to initialize executor. The following nodes have errors: #{failed_nodes}"
@@ -257,15 +257,17 @@ defmodule AshComputer.Executor do
           end)
 
         new_to_check =
-          Enum.reduce(dependents, to_check, fn dep, acc ->
-            if MapSet.member?(affected, dep) do
-              acc
-            else
-              MapSet.put(acc, dep)
-            end
-          end)
+          Enum.reduce(dependents, to_check, &enqueue_unless_affected(&1, &2, affected))
 
         do_find_affected(graph, new_to_check, new_affected)
+    end
+  end
+
+  defp enqueue_unless_affected(dep, to_check, affected) do
+    if MapSet.member?(affected, dep) do
+      to_check
+    else
+      MapSet.put(to_check, dep)
     end
   end
 
@@ -329,5 +331,4 @@ defmodule AshComputer.Executor do
         {values, Map.put(errors, node_key, Error.blocked(blocked_node))}
     end
   end
-
 end

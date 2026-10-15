@@ -258,20 +258,24 @@ defmodule AshComputer.LiveViewIntegrationTest do
       # Custom handler that updates a single computer's inputs
       @impl true
       def handle_event("custom_refresh", _params, socket) do
-        updated_socket = update_computer_inputs(socket, :sidebar, %{
-          refresh_trigger: System.monotonic_time(),
-          filter: "active"
-        })
+        updated_socket =
+          update_computer_inputs(socket, :sidebar, %{
+            refresh_trigger: System.monotonic_time(),
+            filter: "active"
+          })
+
         {:noreply, updated_socket}
       end
 
       # Custom handler that updates multiple computers
       @impl true
       def handle_event("refresh_all", _params, socket) do
-        updated_socket = update_computers(socket, %{
-          sidebar: %{refresh_trigger: 999, filter: "all"},
-          main_content: %{page: 2}
-        })
+        updated_socket =
+          update_computers(socket, %{
+            sidebar: %{refresh_trigger: 999, filter: "all"},
+            main_content: %{page: 2}
+          })
+
         {:noreply, updated_socket}
       end
 
