@@ -4,7 +4,9 @@ spark_locals_without_parens = [
   event: 1,
   event: 2,
   initial: 1,
-  handle: 1
+  handle: 1,
+  run: 1,
+  handle_result: 1
 ]
 
 [
