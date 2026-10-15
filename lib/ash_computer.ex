@@ -66,17 +66,26 @@ defmodule AshComputer do
   @doc """
   Run an event, including events with side effects.
 
-  Returns `{executor, reply}`. See `AshComputer.EventRunner.dispatch_event/6`.
+  Returns `{executor, reply}`. See `AshComputer.EventRunner.dispatch_event/7`
+  for the `:as` option.
   """
-  defdelegate dispatch_event(module, computer_name, event_name, executor, params, ctx),
-    to: AshComputer.EventRunner
+  defdelegate dispatch_event(
+                module,
+                computer_name,
+                event_name,
+                executor,
+                params,
+                ctx,
+                opts \\ []
+              ),
+              to: AshComputer.EventRunner
 
   @doc """
   Turn the result of an event's `run` into `{executor, reply}`.
 
-  See `AshComputer.EventRunner.map_result/6`.
+  See `AshComputer.EventRunner.map_result/7`.
   """
-  defdelegate map_result(module, computer_name, event_name, executor, result, params),
+  defdelegate map_result(module, computer_name, event_name, executor, result, params, opts \\ []),
     to: AshComputer.EventRunner
 
   defp do_apply_event(module, computer_name, event_name, executor, payload) do
