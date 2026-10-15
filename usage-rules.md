@@ -227,6 +227,67 @@ executor = AshComputer.apply_event(MyModule, :load_preset, executor, payload)
 executor = AshComputer.apply_event(MyModule, :calculator, :reset, executor)
 ```
 
+### Events with Side Effects
+
+An event has either `handle` (pure) or `run` + `handle_result` (effect). Never both; `handle_result` is required with `run` and not allowed without it. The compiler checks this and the capture arities.
+
+```elixir
+computer :invoice do
+  input :status do
+    initial :draft
+  end
+
+  input :error do
+    initial nil
+  end
+
+  event :send,
+    run: &__MODULE__.send_invoice/3,
+    handle_result: &__MODULE__.sent/3
+end
+
+# run/3: (values, params, %AshComputer.Context{actor, tenant, extra}) -> {:ok, _} | {:error, _}
+def send_invoice(_values, %{"to" => to}, ctx), do: ctx.extra.mailer.deliver(ctx.tenant, ctx.actor, to)
+
+# handle_result/3: pure, (result, values, params) -> %AshComputer.Reply{}
+def sent({:ok, _}, _values, _params) do
+  AshComputer.Reply.new(status: :sent, error: nil) |> AshComputer.Reply.flash(:info, "Sent")
+end
+
+def sent({:error, reason}, _values, _params) do
+  AshComputer.Reply.new(error: reason) |> AshComputer.Reply.flash(:error, "Failed")
+end
+```
+
+**Reply builders** (`AshComputer.Reply`): `new(changes)`, `change(reply, changes)`, `flash(reply, kind, message)`, `navigate(reply, path)`, `patch(reply, path)`, `redirect(reply, path)`, `push_event(reply, name, payload \\ %{})`. A reply is plain data; the core never performs the outcomes, the LiveView adapter does.
+
+**Running without a LiveView**:
+
+```elixir
+ctx = AshComputer.Context.new(actor: user, tenant: tenant, extra: %{mailer: MyMailer})
+{executor, reply} = AshComputer.dispatch_event(MyModule, :invoice, :send, executor, params, ctx)
+
+# Computer attached under an alias: name it with `as:` (7th argument)
+{executor, reply} =
+  AshComputer.dispatch_event(MyModule, :invoice, :send, executor, params, ctx, as: :main_invoice)
+
+# Only the handle_result half, from a result you already have
+{executor, reply} = AshComputer.map_result(MyModule, :invoice, :send, executor, {:error, :timeout}, params)
+```
+
+**In a LiveView**:
+- Optional callback `computer_context(socket)` returns an `AshComputer.Context`, or a keyword list or map with `:actor`, `:tenant`, `:extra`. Without it the context is empty. It is built per event and handed to `run` only; it is not stored in assigns.
+- `run_event(socket, computer, event, params)` runs an event from `mount/3` (after `mount_computers/1`), `handle_info/2` or any callback, like a `phx-click` would. `computer` is the name or alias. Returns the socket.
+- The adapter syncs input changes to assigns first, then applies flash, client events and the navigate/patch/redirect.
+
+**Rules**:
+- Effects run synchronously in the LiveView process.
+- A crash in `run` or `handle_result` is not rescued. Return `{:error, reason}` for expected failures.
+- A `run` result other than `{:ok, _}`/`{:error, _}`, or a `handle_result` result other than `%Reply{}`, raises `ArgumentError`.
+- Events may change only inputs (pure and effect events, `dispatch_event` and the LiveView); changing a val raises.
+- A reply may set at most one of navigate, patch and redirect; more raises.
+- `apply_event` raises for effect events; use `dispatch_event`.
+- Known limitation: an input set to `nil` or `false` falls back to its `initial` value (the executor resolves inputs with `||`). Start inputs that carry results or errors as `nil`; do not rely on `false` for an input whose `initial` is `true`. To be fixed in a later release.
 
 ## LiveView Integration
 

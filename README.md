@@ -1,8 +1,6 @@
 # AshComputer
 
-[![Hex.pm](https://img.shields.io/hexpm/v/ash_computer.svg)](https://hex.pm/packages/ash_computer)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/ash_computer)
-[![License](https://img.shields.io/hexpm/l/ash_computer.svg)](https://github.com/handgemacht-ai/ash_computer/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/handgemacht-ai/ash_computer/blob/main/LICENSE)
 
 A reactive computation DSL for Elixir, powered by [Spark](https://github.com/ash-project/spark). Based on [Lucassifoni/computer](https://github.com/Lucassifoni/computer).
 
