@@ -37,13 +37,51 @@ defmodule AshComputer.LiveView do
   - Generate `handle_event("cart_add_item", params, socket)` callbacks
   - Create flat assigns like `cart_items` and `cart_total`
   - Automatically sync computer state to socket assigns
+
+  ## Events with side effects
+
+  Events declared with `run` and `handle_result` run their effect when the
+  event arrives. The effect receives an `AshComputer.Context` built from the
+  optional `c:computer_context/1` callback; without it the context is empty.
+  The context is handed to `run` only: it is never stored in the socket
+  assigns or logged.
+
+  The `AshComputer.Reply` returned by the event is applied to the socket: its
+  input changes are synced to assigns, then its flash messages, navigation,
+  patch, redirect and client events are carried out. A reply may ask for at
+  most one of navigate, patch and redirect.
+
+  Use `AshComputer.LiveView.Helpers.run_event/4` to run an event from
+  `mount/3` or `handle_info/2`.
+
+      @impl true
+      def computer_context(socket) do
+        [actor: socket.assigns.current_user, tenant: socket.assigns.tenant]
+      end
+
+  Effect events are supported for computers attached under their own name.
+  A computer attached with `as:` under a different name supports pure events
+  only.
   """
 
   alias AshComputer.LiveView.Helpers
 
+  @doc """
+  Builds the context handed to effect events.
+
+  Receives the socket and returns an `AshComputer.Context`, or a keyword list
+  or map with `:actor`, `:tenant` and `:extra`. Optional: when a LiveView does
+  not define it, the context is empty.
+  """
+  @callback computer_context(socket :: Phoenix.LiveView.Socket.t()) ::
+              AshComputer.Context.t() | keyword() | map()
+
+  @optional_callbacks computer_context: 1
+
   defmacro __using__(_opts) do
     quote do
       use AshComputer
+      @behaviour AshComputer.LiveView
       import AshComputer.LiveView
       import AshComputer.LiveView.Helpers
 
@@ -219,56 +257,15 @@ defmodule AshComputer.LiveView do
     quote do
       @impl true
       def handle_event(unquote(event_string), params, socket) do
-        executor = Helpers.get_executor_from_assigns(socket)
-
-        # Get the event handler from the source module
-        computer_def = AshComputer.Info.computer(unquote(source_module), unquote(computer_name))
-        event = Enum.find(computer_def.events, &(&1.name == unquote(event_name)))
-
-        unless event do
-          raise ArgumentError,
-                "Event #{inspect(unquote(event_name))} not found in computer #{inspect(unquote(computer_name))}"
-        end
-
-        # Get current values using alias name (which is how it's stored in the executor)
-        values = AshComputer.Executor.current_values(executor, unquote(alias_name))
-
-        # Call the event handler
-        changes =
-          cond do
-            is_function(event.handle, 1) ->
-              event.handle.(values)
-
-            is_function(event.handle, 2) ->
-              event.handle.(values, params)
-
-            true ->
-              raise ArgumentError,
-                    "Event handler must be a function of arity 1 or 2"
-          end
-
-        unless is_map(changes) do
-          raise ArgumentError,
-                "Event handler must return a map of input changes"
-        end
-
-        # Apply the changes using alias name
-        updated_executor =
-          executor
-          |> AshComputer.Executor.start_frame()
-          |> then(fn exec ->
-            Enum.reduce(changes, exec, fn {input_name, value}, acc ->
-              AshComputer.Executor.set_input(acc, unquote(alias_name), input_name, value)
-            end)
-          end)
-          |> AshComputer.Executor.commit_frame()
-
-        updated_socket =
-          socket
-          |> Phoenix.Component.assign(:__executor__, updated_executor)
-          |> Helpers.sync_executor_to_assigns()
-
-        {:noreply, updated_socket}
+        {:noreply,
+         Helpers.dispatch(
+           socket,
+           unquote(alias_name),
+           unquote(source_module),
+           unquote(computer_name),
+           unquote(event_name),
+           params
+         )}
       end
     end
   end
@@ -370,6 +367,151 @@ defmodule AshComputer.LiveView.Helpers do
     quote do
       unquote(event_string)
     end
+  end
+
+  @doc """
+  Runs an event from `mount/3`, `handle_info/2` or any other callback.
+
+  Does what a `phx-click` on the event does: builds the context from
+  `computer_context/1`, runs the event, syncs assigns and applies the reply's
+  flash, navigation, patch, redirect and client events. Returns the socket.
+
+  `computer` is the computer's name, or its alias for an attached computer.
+
+      def handle_info({:payment_done, id}, socket) do
+        {:noreply, run_event(socket, :order, :payment_done, %{"id" => id})}
+      end
+  """
+  @spec run_event(Phoenix.LiveView.Socket.t(), atom(), atom(), term()) ::
+          Phoenix.LiveView.Socket.t()
+  def run_event(socket, computer, event, params) do
+    case Enum.find(AshComputer.LiveView.get_all_computers(socket.view), fn {alias_name, _, _} ->
+           alias_name == computer
+         end) do
+      {alias_name, source_module, computer_name} ->
+        dispatch(socket, alias_name, source_module, computer_name, event, params)
+
+      nil ->
+        known = Enum.map(AshComputer.LiveView.get_all_computers(socket.view), &elem(&1, 0))
+
+        raise ArgumentError,
+              "Unknown computer #{inspect(computer)} for #{inspect(socket.view)}. " <>
+                "Known computers: #{inspect(known)}"
+    end
+  end
+
+  @doc false
+  def dispatch(socket, alias_name, source_module, computer_name, event_name, params) do
+    executor = get_executor_from_assigns(socket)
+
+    unless executor do
+      raise ArgumentError, "No executor found in socket assigns. Did you call mount_computers/1?"
+    end
+
+    {updated_executor, reply} =
+      if alias_name == computer_name do
+        AshComputer.dispatch_event(
+          source_module,
+          computer_name,
+          event_name,
+          executor,
+          params,
+          build_context(socket)
+        )
+      else
+        dispatch_aliased(source_module, computer_name, alias_name, event_name, executor, params)
+      end
+
+    socket
+    |> Phoenix.Component.assign(:__executor__, updated_executor)
+    |> sync_executor_to_assigns()
+    |> apply_reply(reply)
+  end
+
+  defp build_context(socket) do
+    if function_exported?(socket.view, :computer_context, 1) do
+      AshComputer.Context.new(socket.view.computer_context(socket))
+    else
+      AshComputer.Context.new([])
+    end
+  end
+
+  defp apply_reply(socket, %AshComputer.Reply{} = reply) do
+    destinations =
+      Enum.reject(
+        [navigate: reply.navigate, patch: reply.patch, redirect: reply.redirect],
+        fn {_kind, to} -> is_nil(to) end
+      )
+
+    if length(destinations) > 1 do
+      raise ArgumentError,
+            "A reply may ask for at most one of navigate, patch and redirect, got: " <>
+              inspect(Keyword.keys(destinations))
+    end
+
+    socket =
+      Enum.reduce(reply.flash, socket, fn {kind, message}, acc ->
+        Phoenix.LiveView.put_flash(acc, kind, message)
+      end)
+
+    socket =
+      Enum.reduce(reply.push_events, socket, fn {name, payload}, acc ->
+        Phoenix.LiveView.push_event(acc, name, payload)
+      end)
+
+    case destinations do
+      [] -> socket
+      [navigate: to] -> Phoenix.LiveView.push_navigate(socket, to: to)
+      [patch: to] -> Phoenix.LiveView.push_patch(socket, to: to)
+      [redirect: to] -> Phoenix.LiveView.redirect(socket, to: to)
+    end
+  end
+
+  # Attached with `as:` under another name: the executor is keyed by the alias
+  # while the event lives under the source computer's name, which
+  # `AshComputer.dispatch_event/6` does not distinguish. Only pure events.
+  defp dispatch_aliased(source_module, computer_name, alias_name, event_name, executor, params) do
+    computer_def = AshComputer.Info.computer(source_module, computer_name)
+    event = Enum.find(computer_def.events, &(&1.name == event_name))
+
+    unless event do
+      raise ArgumentError,
+            "Event #{inspect(event_name)} not found in computer #{inspect(computer_name)}"
+    end
+
+    if event.run do
+      raise ArgumentError,
+            "Event #{inspect(event_name)} has a side effect (`run`) and cannot run on " <>
+              "computer #{inspect(computer_name)} attached as #{inspect(alias_name)}. " <>
+              "Attach it under its own name."
+    end
+
+    values = AshComputer.Executor.current_values(executor, alias_name)
+
+    changes =
+      cond do
+        is_function(event.handle, 1) ->
+          event.handle.(values)
+
+        is_function(event.handle, 2) ->
+          event.handle.(values, params)
+
+        true ->
+          raise ArgumentError, "Event handler must be a function of arity 1 or 2"
+      end
+
+    unless is_map(changes) do
+      raise ArgumentError, "Event handler must return a map of input changes"
+    end
+
+    updated_executor =
+      changes
+      |> Enum.reduce(AshComputer.Executor.start_frame(executor), fn {input_name, value}, acc ->
+        AshComputer.Executor.set_input(acc, alias_name, input_name, value)
+      end)
+      |> AshComputer.Executor.commit_frame()
+
+    {updated_executor, AshComputer.Reply.new(changes)}
   end
 
   @doc """
