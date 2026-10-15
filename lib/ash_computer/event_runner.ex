@@ -2,7 +2,7 @@ defmodule AshComputer.EventRunner do
   @moduledoc """
   Runs events, including events with side effects.
 
-  `dispatch_event/6` runs an event and returns the new executor with an
+  `dispatch_event/7` runs an event and returns the new executor with an
   `AshComputer.Reply`. A pure event (`handle`) yields a reply that only holds
   its input changes. An effect event (`run` and `handle_result`) runs its
   effect synchronously, hands the result to `handle_result` and applies the
@@ -22,20 +22,34 @@ defmodule AshComputer.EventRunner do
 
   `ctx` is an `AshComputer.Context` (or anything `Context.new/1` accepts).
   Input changes are applied to the executor; only inputs may change.
+
+  ## Options
+
+    * `:as` - the name the computer has in the executor, when it differs from
+      `computer_name` (a computer attached under an alias). Defaults to
+      `computer_name`, which is also where the event is looked up in `module`.
   """
-  @spec dispatch_event(module(), atom(), atom(), struct(), term(), Context.t() | keyword()) ::
-          {struct(), Reply.t()}
-  def dispatch_event(module, computer_name, event_name, executor, params, ctx) do
+  @spec dispatch_event(
+          module(),
+          atom(),
+          atom(),
+          struct(),
+          term(),
+          Context.t() | keyword(),
+          keyword()
+        ) :: {struct(), Reply.t()}
+  def dispatch_event(module, computer_name, event_name, executor, params, ctx, opts \\ []) do
     ctx = Context.new(ctx)
+    key = Keyword.get(opts, :as, computer_name)
     event = fetch_event!(module, computer_name, event_name)
-    values = Executor.current_values(executor, computer_name)
+    values = Executor.current_values(executor, key)
 
     if is_nil(event.run) do
       changes = run_pure!(event, computer_name, values, params)
-      finish(executor, computer_name, event, Reply.new(changes))
+      finish(executor, key, computer_name, event, Reply.new(changes))
     else
       result = event.run.(values, params, ctx)
-      map_result(module, computer_name, event_name, executor, result, params)
+      map_result(module, computer_name, event_name, executor, result, params, opts)
     end
   end
 
@@ -44,11 +58,12 @@ defmodule AshComputer.EventRunner do
 
   Calls the event's `handle_result` with the result, the current values and
   the params, then applies the reply's input changes. The result must be
-  `{:ok, _}` or `{:error, _}`.
+  `{:ok, _}` or `{:error, _}`. Takes the same `:as` option as `dispatch_event/7`.
   """
-  @spec map_result(module(), atom(), atom(), struct(), term(), term()) ::
+  @spec map_result(module(), atom(), atom(), struct(), term(), term(), keyword()) ::
           {struct(), Reply.t()}
-  def map_result(module, computer_name, event_name, executor, result, params) do
+  def map_result(module, computer_name, event_name, executor, result, params, opts \\ []) do
+    key = Keyword.get(opts, :as, computer_name)
     event = fetch_event!(module, computer_name, event_name)
 
     if is_nil(event.run) do
@@ -61,11 +76,11 @@ defmodule AshComputer.EventRunner do
             "Event #{inspect(event_name)} for #{inspect(computer_name)} must return {:ok, _} or {:error, _} from `run`, got: #{inspect(result)}"
     end
 
-    values = Executor.current_values(executor, computer_name)
+    values = Executor.current_values(executor, key)
 
     case event.handle_result.(result, values, params) do
       %Reply{} = reply ->
-        finish(executor, computer_name, event, reply)
+        finish(executor, key, computer_name, event, reply)
 
       other ->
         raise ArgumentError,
@@ -110,8 +125,8 @@ defmodule AshComputer.EventRunner do
     changes
   end
 
-  defp finish(executor, computer_name, event, %Reply{changes: changes} = reply) do
-    inputs = Map.keys(executor.computers[computer_name].inputs)
+  defp finish(executor, key, computer_name, event, %Reply{changes: changes} = reply) do
+    inputs = Map.keys(executor.computers[key].inputs)
     invalid_keys = Map.keys(changes) -- inputs
 
     unless invalid_keys == [] do
@@ -123,7 +138,7 @@ defmodule AshComputer.EventRunner do
     executor =
       changes
       |> Enum.reduce(Executor.start_frame(executor), fn {input_name, value}, acc ->
-        Executor.set_input(acc, computer_name, input_name, value)
+        Executor.set_input(acc, key, input_name, value)
       end)
       |> Executor.commit_frame()
 

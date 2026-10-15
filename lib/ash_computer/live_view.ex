@@ -58,10 +58,6 @@ defmodule AshComputer.LiveView do
       def computer_context(socket) do
         [actor: socket.assigns.current_user, tenant: socket.assigns.tenant]
       end
-
-  Effect events are supported for computers attached under their own name.
-  A computer attached with `as:` under a different name supports pure events
-  only.
   """
 
   alias AshComputer.LiveView.Helpers
@@ -409,18 +405,15 @@ defmodule AshComputer.LiveView.Helpers do
     end
 
     {updated_executor, reply} =
-      if alias_name == computer_name do
-        AshComputer.dispatch_event(
-          source_module,
-          computer_name,
-          event_name,
-          executor,
-          params,
-          build_context(socket)
-        )
-      else
-        dispatch_aliased(source_module, computer_name, alias_name, event_name, executor, params)
-      end
+      AshComputer.dispatch_event(
+        source_module,
+        computer_name,
+        event_name,
+        executor,
+        params,
+        build_context(socket),
+        as: alias_name
+      )
 
     socket
     |> Phoenix.Component.assign(:__executor__, updated_executor)
@@ -465,53 +458,6 @@ defmodule AshComputer.LiveView.Helpers do
       [patch: to] -> Phoenix.LiveView.push_patch(socket, to: to)
       [redirect: to] -> Phoenix.LiveView.redirect(socket, to: to)
     end
-  end
-
-  # Attached with `as:` under another name: the executor is keyed by the alias
-  # while the event lives under the source computer's name, which
-  # `AshComputer.dispatch_event/6` does not distinguish. Only pure events.
-  defp dispatch_aliased(source_module, computer_name, alias_name, event_name, executor, params) do
-    computer_def = AshComputer.Info.computer(source_module, computer_name)
-    event = Enum.find(computer_def.events, &(&1.name == event_name))
-
-    unless event do
-      raise ArgumentError,
-            "Event #{inspect(event_name)} not found in computer #{inspect(computer_name)}"
-    end
-
-    if event.run do
-      raise ArgumentError,
-            "Event #{inspect(event_name)} has a side effect (`run`) and cannot run on " <>
-              "computer #{inspect(computer_name)} attached as #{inspect(alias_name)}. " <>
-              "Attach it under its own name."
-    end
-
-    values = AshComputer.Executor.current_values(executor, alias_name)
-
-    changes =
-      cond do
-        is_function(event.handle, 1) ->
-          event.handle.(values)
-
-        is_function(event.handle, 2) ->
-          event.handle.(values, params)
-
-        true ->
-          raise ArgumentError, "Event handler must be a function of arity 1 or 2"
-      end
-
-    unless is_map(changes) do
-      raise ArgumentError, "Event handler must return a map of input changes"
-    end
-
-    updated_executor =
-      changes
-      |> Enum.reduce(AshComputer.Executor.start_frame(executor), fn {input_name, value}, acc ->
-        AshComputer.Executor.set_input(acc, alias_name, input_name, value)
-      end)
-      |> AshComputer.Executor.commit_frame()
-
-    {updated_executor, AshComputer.Reply.new(changes)}
   end
 
   @doc """

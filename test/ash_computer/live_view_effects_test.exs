@@ -311,11 +311,22 @@ defmodule AshComputer.LiveViewEffectsTest do
           initial false
         end
 
+        val :label do
+          compute fn %{done: done} -> if done, do: "done", else: "open" end
+        end
+
         event :finish, run: &__MODULE__.finish/3, handle_result: &__MODULE__.finished/3
+        event :reopen, handle: &__MODULE__.reopen/1
+        event :touch_val, handle: &__MODULE__.touch_val/1
       end
 
-      def finish(_values, _params, _ctx), do: {:ok, true}
-      def finished({:ok, done}, _values, _params), do: AshComputer.Reply.new(done: done)
+      def finish(_values, _params, ctx), do: {:ok, ctx.extra}
+
+      def finished({:ok, extra}, _values, _params),
+        do: AshComputer.Reply.new(done: extra) |> AshComputer.Reply.flash(:info, "Finished")
+
+      def reopen(_values), do: %{done: false}
+      def touch_val(_values), do: %{label: "x"}
     end
 
     defmodule AliasedLive do
@@ -326,21 +337,76 @@ defmodule AshComputer.LiveViewEffectsTest do
       attach_computer(EffectComputer, :job)
 
       @impl true
+      def computer_context(_socket), do: [extra: :via_alias]
+
+      @impl true
       def mount(_params, _session, socket), do: {:ok, mount_computers(socket)}
 
       @impl true
-      def render(assigns), do: ~H"<p>{@job_done}</p>"
+      def render(assigns) do
+        ~H"""
+        <p id="task">{@task_label}</p>
+        <p id="job">{@job_label}</p>
+        <p :if={msg = Phoenix.Flash.get(@flash, :info)} id="flash-info">{msg}</p>
+        """
+      end
+    end
+
+    test "an effect event works under the alias, end to end" do
+      view = live_mount(AliasedLive)
+
+      render_click(view, "task_finish", %{})
+
+      assert text(view, "task") =~ "done"
+      assert text(view, "job") =~ "open"
+      assert text(view, "flash-info") =~ "Finished"
+
+      render_click(view, "task_reopen", %{})
+      assert text(view, "task") =~ "open"
     end
 
     test "an effect event works under its own name" do
       socket = socket_for(AliasedLive) |> Helpers.run_event(:job, :finish, %{})
-      assert socket.assigns.job_done == true
+      assert socket.assigns.job_done == :via_alias
+      assert socket.assigns.task_done == false
     end
 
-    test "an effect event is refused under another name" do
-      assert_raise ArgumentError, ~r/attached as :task/, fn ->
-        socket_for(AliasedLive) |> Helpers.run_event(:task, :finish, %{})
+    test "run_event/4 accepts the alias" do
+      socket = socket_for(AliasedLive) |> Helpers.run_event(:task, :finish, %{})
+      assert socket.assigns.task_done == :via_alias
+      assert socket.assigns.job_done == false
+    end
+
+    test "an event under the alias can only change inputs" do
+      assert_raise ArgumentError, ~r/tried to modify non-input values: \[:label\]/, fn ->
+        socket_for(AliasedLive) |> Helpers.run_event(:task, :touch_val, %{})
       end
+    end
+  end
+
+  describe "dispatch_event/7 with :as" do
+    test "runs against the executor key given by :as" do
+      alias AshComputer.Executor
+
+      executor =
+        %{Executor.new() | computers: %{shop: AshComputer.computer_spec(Effects, :shop)}}
+        |> then(fn exec ->
+          computer =
+            AshComputer.Computer.new(
+              exec.computers.shop.inputs,
+              exec.computers.shop.vals,
+              exec.computers.shop.dependencies
+            )
+
+          %{exec | computers: %{aliased: computer}}
+        end)
+        |> Executor.initialize()
+
+      {executor, reply} =
+        AshComputer.dispatch_event(Effects, :shop, :pay, executor, %{}, [], as: :aliased)
+
+      assert Executor.current_values(executor, :aliased).status == :paid
+      assert reply.flash == [info: "Paid"]
     end
   end
 end
