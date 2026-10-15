@@ -637,7 +637,7 @@ For detailed documentation on multi-computer composition patterns, see [usage-ru
 
 ## Documentation
 
-For detailed documentation, see [HexDocs](https://hexdocs.pm/ash_computer).
+Module docs can be built locally with `mix docs`.
 
 For AI assistance with this library, see [usage-rules.md](usage-rules.md).
 
