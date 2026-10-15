@@ -5,9 +5,9 @@ defmodule AshComputer.MixProject do
   Ash wrapper for computer
   """
 
-  @version "0.2.1"
+  @version "0.3.0"
 
-  @source_url "https://github.com/marot/ash_computer"
+  @source_url "https://github.com/handgemacht-ai/ash_computer"
 
   def project do
     [
@@ -89,7 +89,7 @@ defmodule AshComputer.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:phoenix, "~> 1.8.1", optional: true},
-      {:phoenix_live_view, "~> 1.1.8", optional: true},
+      {:phoenix_live_view, "~> 1.1.8 or ~> 1.2", optional: true},
       {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end

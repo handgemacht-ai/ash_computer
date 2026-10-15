@@ -34,6 +34,48 @@ defmodule AshComputer.LiveViewTestHelper do
   end
 end
 
+defmodule AshComputer.TestLive.Navigation do
+  @moduledoc false
+  use Phoenix.LiveView
+
+  @impl true
+  def mount(_params, _session, socket), do: {:ok, socket}
+
+  @impl true
+  def handle_params(params, _uri, socket),
+    do: {:noreply, Phoenix.Component.assign(socket, :page, params["page"])}
+
+  @impl true
+  def handle_event("patch", _params, socket),
+    do: {:noreply, push_patch(socket, to: "/navigation/patched")}
+
+  def handle_event("redirect", _params, socket),
+    do: {:noreply, push_navigate(socket, to: "/elsewhere")}
+
+  @impl true
+  def render(assigns), do: ~H"<p>page: {@page}</p>"
+end
+
+defmodule AshComputer.TestRouter do
+  @moduledoc """
+  Routes for LiveView tests that need `live/2`, `assert_patch` and
+  `assert_redirect`. Add a `live` route per test LiveView.
+  """
+  use Phoenix.Router
+  import Phoenix.LiveView.Router
+
+  pipeline :browser do
+    plug(:fetch_session)
+  end
+
+  scope "/" do
+    pipe_through(:browser)
+
+    live("/navigation", AshComputer.TestLive.Navigation)
+    live("/navigation/:page", AshComputer.TestLive.Navigation)
+  end
+end
+
 defmodule AshComputer.TestEndpoint do
   @moduledoc false
   use Phoenix.Endpoint, otp_app: :ash_computer
@@ -49,4 +91,5 @@ defmodule AshComputer.TestEndpoint do
   socket("/live", Phoenix.LiveView.Socket, websocket: true, longpoll: false)
 
   plug(Plug.Session, @session_options)
+  plug(AshComputer.TestRouter)
 end
