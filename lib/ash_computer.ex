@@ -63,6 +63,22 @@ defmodule AshComputer do
     do_apply_event(module, name, event_name, executor, payload)
   end
 
+  @doc """
+  Run an event, including events with side effects.
+
+  Returns `{executor, reply}`. See `AshComputer.EventRunner.dispatch_event/6`.
+  """
+  defdelegate dispatch_event(module, computer_name, event_name, executor, params, ctx),
+    to: AshComputer.EventRunner
+
+  @doc """
+  Turn the result of an event's `run` into `{executor, reply}`.
+
+  See `AshComputer.EventRunner.map_result/6`.
+  """
+  defdelegate map_result(module, computer_name, event_name, executor, result, params),
+    to: AshComputer.EventRunner
+
   defp do_apply_event(module, computer_name, event_name, executor, payload) do
     case Info.computer(module, computer_name) do
       nil ->
@@ -79,6 +95,12 @@ defmodule AshComputer do
           raise ArgumentError,
                 "Unknown event #{inspect(event_name)} for #{inspect(computer_name)} in #{inspect(module)}. " <>
                   "Known events: #{inspect(known_events)}"
+        end
+
+        if event.run do
+          raise ArgumentError,
+                "Event #{inspect(event_name)} for #{inspect(computer_name)} has a side effect (`run`) and cannot be applied with apply_event. " <>
+                  "Use AshComputer.dispatch_event/6 instead."
         end
 
         apply_event_handler(event.handle, executor, computer_name, payload, event_name)

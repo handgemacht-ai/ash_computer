@@ -32,16 +32,25 @@ defmodule AshComputer.Dsl do
 
   @event %Spark.Dsl.Entity{
     name: :event,
-    describe: "Declare an event that mutates the computer when invoked.",
+    describe: "Declare an event that changes inputs, optionally through a side effect.",
     args: [:name],
     target: AshComputer.Dsl.Event,
     schema: [
       name: [type: :atom, doc: "The name of the event."],
       handle: [
         type: :any,
-        required: true,
         doc:
-          "Captured function (arity 1 or 2) that receives the computer and optional payload, returning an updated computer."
+          "Pure event. Captured function (arity 1 or 2) that receives the values and optional params and returns a map of input changes. Exactly one of `handle` or `run` is required."
+      ],
+      run: [
+        type: :any,
+        doc:
+          "Effect event. Captured function of arity 3 that receives the values, the params and an `AshComputer.Context`, and returns `{:ok, _}` or `{:error, _}`. Runs synchronously; a crash is not rescued. Requires `handle_result`."
+      ],
+      handle_result: [
+        type: :any,
+        doc:
+          "Required when `run` is set. Pure captured function of arity 3 that receives `{:ok, _} | {:error, _}`, the values and the params, and returns an `AshComputer.Reply`."
       ],
       description: [type: :string, doc: "Human readable description of the event."]
     ]
@@ -81,6 +90,7 @@ defmodule AshComputer.Dsl do
       AshComputer.Transformers.CompileComputers
     ],
     verifiers: [
-      AshComputer.Verifiers.ValidateDependencies
+      AshComputer.Verifiers.ValidateDependencies,
+      AshComputer.Verifiers.ValidateEvents
     ]
 end
